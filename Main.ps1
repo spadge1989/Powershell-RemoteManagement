@@ -18,7 +18,7 @@ $computers = get-content $inputfile
 $serviceName = 'SplunkForwarder'
 
 # Where the file/Folder is located that you would like to be deleted (\\$currentComputer\c$\ should always remain the same - only change the bit after this)
-$fileInput = "Program Files\SplunkForwarder\var\lib\splunk\fishbucket"
+$fileInput = "Program Files\SplunkUniversalForwarder\var\lib\splunk\fishbucket"
 
 # Main script to do services on endpoints
 $computersDown = @()
