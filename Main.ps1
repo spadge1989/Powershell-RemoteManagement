@@ -15,11 +15,10 @@ $inputfile = Get-FileName "C:\"
 $computers = get-content $inputfile
 
 # service name shiz
-$serviceName = 'AdobeARMservice'
+$serviceName = 'SplunkForwarder'
 
 # Where the file/Folder is located that you would like to be deleted (\\$currentComputer\c$\ should always remain the same - only change the bit after this)
-#$file = \\$currentComputer\c$\%SPLUNK_HOME%\var\lib\splunk\fishbucket
-$fileInput = "TestFolder\delete"
+$fileInput = "Program Files\SplunkForwarder\var\lib\splunk\fishbucket"
 
 # Main script to do services on endpoints
 $computersDown = @()
@@ -46,7 +45,7 @@ Write-Host "Would you like to change the file/folder location that gets deleted 
        Default {} 
      }
 
-$file = "\\$currentComputer\c$\" + "$fileInput"
+$file = "\\$currentComputer\d$\" + "$fileInput"
 
 ForEach ($currentComputer in $computers)
 {
