@@ -18,6 +18,7 @@ $computerServiceNotPresent = @()
 $computerServiceCantStart = @()
 $computerFileDeletionFailed = @()
 $computerServiceCantStartBack = @()
+$computerTaskInstallFalied = @()
 
 ###### End of Default Variables ############
 
@@ -271,6 +272,60 @@ Function Service-Restart
     }
 }
 
+# Function to only delete remote file and check it was done
+
+Function Delete-File
+{
+    $script:computerFileDeletionFailed = @()
+    $script:inputfile = Get-FileName "C:\"
+    if ($inputfile -ne "Cancel")
+    {
+    $script:computers = get-content $inputfile
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+    }
+    $script:file = "\\$currentComputer" + "$fileInput"
+
+    ForEach ($currentComputer in $computers)
+    {
+        if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
+        {        
+            Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
+            if (test-path -path $file)
+            {
+                Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
+                Remove-Item $file -force -recurse
+                Start-Sleep -seconds 10
+                while (test-path -path $file)
+                {
+                    Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
+                    Remove-Item $file -force -recurse
+                    Start-Sleep -seconds 10
+                    if (!(test-path -path $file))
+                    {
+                        Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
+                        break
+                    }
+                    $b+=1
+                    if($b -gt 3)
+                    {
+                        Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
+                        $script:computerFileDeletionFailed += "`n$currentComputer"
+                        break
+                    }
+                }
+            }
+        }
+        else
+        {
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
+            $script:computersDown += "`n$currentComputer"
+        }
+    }
+}
+
 # Function to Delete remote file/folder with a service stop / started on windows machines via domain hidden shared (e.g. c$)
 # This first stops the remote service, then deletes the file then starts the service back up
 
@@ -406,11 +461,11 @@ Function Delete-File-With-Service-Restart
     }
 }
 
-# Function to only delete remote file and check it was done
+# Function to install MSI packagae remotely using Scheduled tasks (schtasks.exe)
 
-Function Delete-File
+Function Task-Install
 {
-    $script:computerFileDeletionFailed = @()
+    $script:computerTaskInstallFalied = @()
     $script:inputfile = Get-FileName "C:\"
     if ($inputfile -ne "Cancel")
     {
@@ -420,7 +475,6 @@ Function Delete-File
     {
         Write-Host "Cancled by user"
     }
-    $script:file = "\\$currentComputer" + "$fileInput"
 
     ForEach ($currentComputer in $computers)
     {
@@ -468,7 +522,7 @@ Function Results
     Write-Host "`n====== Results - Only displayed if items failed during the script ======`n"
     Write-Host "====== Note: These are cleared each time another option is selected ======"
     Write-Host "==========================================================================`n"
-    if (!($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack))
+    if (!($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack) -AND !($computerTaskInstallFalied))
     {
         Write-Host "`n No Hosts Failed - Either nothing has been run or all is good `n`n======================================"
     }
@@ -495,6 +549,10 @@ Function Results
     if ($computerServiceCantStartBack)
     {
         Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer:`n$computerServiceCantStartBack`n`n==================END-OF-LIST==================`n"
+    }
+    if ($computerTaskInstallFalied)
+    {
+        Write-Host "List of Computers that the Installation of the MSI package failed:`n$computerTaskInstallFalied`n`n==================END-OF-LIST==================`n"
     }
 }
 
