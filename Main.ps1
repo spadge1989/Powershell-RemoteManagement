@@ -27,9 +27,10 @@ $computerServiceCantStartBack = @()
 
 Function Get-FileName($initialDirectory)
 {
+    Write-Host "`nSelect the csv list that contains the computers you wish to run this against`n"
     [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
-    
-    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog  
+    $OpenFileDialog.Title = "Select List of computers File"   
     $OpenFileDialog.initialDirectory = $initialDirectory
     $OpenFileDialog.filter = "CSV (*.csv)| *.csv"
     $OpenFileDialog.ShowDialog() | Out-Null
@@ -45,7 +46,14 @@ Function Service-Start
 {
     $script:computerServiceCantStart = @()
     $script:inputfile = Get-FileName "C:\"
+    if ($inputfile -ne "Cancel")
+    {
     $script:computers = get-content $inputfile
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+    }
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
@@ -86,10 +94,14 @@ Function Service-Start
                             }
                     }
             }
+            if($serviceStatus.Status -eq "Running")
+            {
+                Write-Host "$currentComputer Service is Already Running" -ForegroundColor Green
+            }
         }
         else
         {
-            Write-Host "$currentComputer is Down" -ForegroundColor Red
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
             $script:computersDown += "`n$currentComputer"
         }
     }
@@ -105,7 +117,14 @@ Function Service-Stop
 {
     $script:computerServiceCantStop = @()
     $script:inputfile = Get-FileName "C:\"
+    if ($inputfile -ne "Cancel")
+    {
     $script:computers = get-content $inputfile
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+    }
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
@@ -146,10 +165,14 @@ Function Service-Stop
                             }
                     }
             }
+            if($serviceStatus.Status -eq "Stopped")
+            {
+                Write-Host "$currentComputer Service is Already Stopped" -ForegroundColor Green
+            }
         }
         else
         {
-            Write-Host "$currentComputer is Down" -ForegroundColor Red
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
             $script:computersDown += "`n$currentComputer"
         }
     }
@@ -163,7 +186,14 @@ Function Service-Restart
 {
     $script:computerServiceCantStop = @()
     $script:inputfile = Get-FileName "C:\"
+    if ($inputfile -ne "Cancel")
+    {
     $script:computers = get-content $inputfile
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+    }
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
@@ -235,7 +265,7 @@ Function Service-Restart
         }
         else
         {
-            Write-Host "$currentComputer is Down" -ForegroundColor Red
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
             $script:computersDown += "`n$currentComputer"
         }
     }
@@ -246,24 +276,31 @@ Function Service-Restart
 
 Function Delete-File-With-Service-Restart
 {
-$script:computerFileDeletionFailed = @()
-$script:inputfile = Get-FileName "C:\"
-$script:computers = get-content $inputfile
-$script:file = "\\$currentComputer" + "$fileInput"
+    $script:computerFileDeletionFailed = @()
+    $script:inputfile = Get-FileName "C:\"
+    if ($inputfile -ne "Cancel")
+    {
+        $script:computers = get-content $inputfile
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+    }
+    $script:file = "\\$currentComputer" + "$fileInput"
 
-ForEach ($currentComputer in $computers)
-{
-    # initial stopping of running services / check if service is present / detected & if host is actualy online via ping
-    if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
-    {        
-        Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
-        Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
-        $script:serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
-        if($ServiceError)
-        {
-            Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
-            $script:computerServiceNotPresent += "`n$currentComputer"
-         }   
+    ForEach ($currentComputer in $computers)
+    {
+        # initial stopping of running services / check if service is present / detected & if host is actualy online via ping
+        if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
+        {        
+            Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
+            Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
+            $script:serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
+            if($ServiceError)
+            {
+                Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
+                $script:computerServiceNotPresent += "`n$currentComputer"
+            }   
             # when computer is confirmed online check the services of that computer & stop if required 
             if($serviceStatus.Status -eq "Running")
             {
@@ -363,7 +400,7 @@ ForEach ($currentComputer in $computers)
         # Used if the endpoint cannot be connected to
         else
         {
-            Write-Host "$currentComputer is Down" -ForegroundColor Red
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
             $script:computersDown += "`n$currentComputer"
         }
     }
@@ -375,34 +412,50 @@ Function Delete-File
 {
     $script:computerFileDeletionFailed = @()
     $script:inputfile = Get-FileName "C:\"
+    if ($inputfile -ne "Cancel")
+    {
     $script:computers = get-content $inputfile
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+    }
     $script:file = "\\$currentComputer" + "$fileInput"
 
     ForEach ($currentComputer in $computers)
     {
-        if (test-path -path $file)
-        {
-            Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
-            Remove-Item $file -force -recurse
-            Start-Sleep -seconds 10
-            while (test-path -path $file)
+        if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
+        {        
+            Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
+            if (test-path -path $file)
             {
-                Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
+                Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
                 Remove-Item $file -force -recurse
                 Start-Sleep -seconds 10
-                if (!(test-path -path $file))
+                while (test-path -path $file)
                 {
-                    Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
-                    break
-                }
-                $b+=1
-                if($b -gt 3)
-                {
-                    Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
-                    $script:computerFileDeletionFailed += "`n$currentComputer"
-                    break
+                    Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
+                    Remove-Item $file -force -recurse
+                    Start-Sleep -seconds 10
+                    if (!(test-path -path $file))
+                    {
+                        Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
+                        break
+                    }
+                    $b+=1
+                    if($b -gt 3)
+                    {
+                        Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
+                        $script:computerFileDeletionFailed += "`n$currentComputer"
+                        break
+                    }
                 }
             }
+        }
+        else
+        {
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
+            $script:computersDown += "`n$currentComputer"
         }
     }
 }
@@ -413,30 +466,35 @@ Function Results
 {
     cls
     Write-Host "`n====== Results - Only displayed if items failed during the script ======`n"
-    Write-Host "====== Note: These are cleared each time another option is selected ======`n"
+    Write-Host "====== Note: These are cleared each time another option is selected ======"
+    Write-Host "==========================================================================`n"
+    if (!($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack))
+    {
+        Write-Host "`n No Hosts Failed - Either nothing has been run or all is good `n`n======================================"
+    }
     if ($computersDown)
     {
-        Write-Host "List of Computers that did not respond to a Ping (appeared offline - suggest trying these seperate/manually): $computersDown" -ForegroundColor Red
+        Write-Host "List of Computers that did not respond to a Ping (appeared offline - suggest trying these seperate/manually):`n$computersDown`n`n==================END-OF-LIST==================`n"
     }
     if ($computerServiceNotPresent)
     {
-        Write-Host "List of Computers that did not appear to have the service installed: $computerServiceNotPresent" -ForegroundColor Red
+        Write-Host "List of Computers that did not appear to have the service installed:`n$computerServiceNotPresent`n`n==================END-OF-LIST==================`n"
     }
     if ($computerServiceCantStop)
     {
-        Write-Host "List of Computers where the $serviceName service could not be stopped: $computerServiceCantStop" -ForegroundColor Red
+        Write-Host "List of Computers where the $serviceName service could not be stopped:`n$computerServiceCantStop`n`n==================END-OF-LIST==================`n"
     }
     if ($computerFileDeletionFailed)
     {
-        Write-Host "List of Computers where the FishBucket could not be deleted but is present ($serviceName service will remain offline): $computerFileDeletionFailed" -ForegroundColor Red
+        Write-Host "List of Computers where the FishBucket could not be deleted but is present ($serviceName service will remain offline):`n$computerFileDeletionFailed`n`n==================END-OF-LIST==================`n"
     }
     if ($computerServiceCantStart)
     {
-        Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket: $computerServiceCantStart" -ForegroundColor Red
+        Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket:`n$computerServiceCantStart`n`n==================END-OF-LIST==================`n"
     }
     if ($computerServiceCantStartBack)
     {
-        Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer: $computerServiceCantStartBack"  -ForegroundColor Red
+        Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer:`n$computerServiceCantStartBack`n`n==================END-OF-LIST==================`n"
     }
 }
 
@@ -444,7 +502,7 @@ Function Results
 # Function for the Main-Menu
 Function User-Menu
 {
-    param 
+    param
     (
         [string]$Title = 'Menu'
     )
@@ -465,7 +523,7 @@ Write-Host "3. Stop Service on remote windows machines within the same domain."
 Write-Host "4. Restart Service on remote windows machines within the same domain."
 Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
 Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
-Write-Host "9. Print Results - Will only print failures"
+Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
 Write-Host "Q: Quit`n"
 }
 
