@@ -17,6 +17,7 @@ $computerServiceCantStop = @()
 $computerServiceNotPresent = @()
 $computerServiceCantStart = @()
 $computerFishBucketDeletionFailed = @()
+$computerServiceCantStartBack = @()
 
 ###### End of Default Variables ############
 
@@ -32,6 +33,65 @@ Function Get-FileName($initialDirectory)
     $OpenFileDialog.filter = "CSV (*.csv)| *.csv"
     $OpenFileDialog.ShowDialog() | Out-Null
     $OpenFileDialog.filename
+}
+
+# Function use to start up remote service
+# This function first checks that the host is online and responding to pings.
+# It then checks if the service is actually installed 
+# It then checks to see if the service is actually stopped first
+
+Function Service-Start
+{
+    $computerServiceCantStart = @()
+    $inputfile = Get-FileName "C:\"
+    $computers = get-content $inputfile
+    ForEach ($currentComputer in $computers)
+    {
+        if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
+        {        
+        Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
+        Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
+        $serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
+        if($ServiceError)
+        {
+            Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
+            $computerServiceNotPresent += "`n$currentComputer"
+         }   
+            # when computer is confirmed online check the services of that computer & start if required 
+            if($serviceStatus.Status -eq "Stopped")
+            {
+                Write-Host "$currentComputer Service is Stopped, Starting $serviceName" -ForegroundColor Yellow
+                Start-Service -InputObject $serviceStatus
+                Start-Sleep -seconds 5
+                $serviceStatus.Refresh()
+                $a = 0
+                    # check if the service actually stopped and attempt to shut the service down 5 times with 10 seconds in between each attempt
+                    while ($serviceStatus.Status -ne 'Running')
+                    {                    
+                        write-host "$serviceName on $currentComputer still Stopped, attempting to start again" -ForegroundColor Yellow
+                        Start-Service -InputObject $serviceStatus
+                        Start-Sleep -seconds 10
+                        $serviceStatus.Refresh()
+                            if($serviceStatus.Status -eq 'Running')
+                            {
+                                break
+                            }
+                            $a+=1
+                            if($a -gt 3)
+                            {
+                                write-host "$serviceName could not be started, skipping $currentComputer" -ForegroundColor Red
+                                $computerServiceCantStart += "`n$currentComputer"
+                                break
+                            }
+                    }
+            }
+        }
+        else
+        {
+            Write-Host "$currentComputer is Down" -ForegroundColor Red
+            $computersDown += "`n$currentComputer"
+        }
+    }
 }
 
 
@@ -69,7 +129,7 @@ Function Service-Stop
                     while ($serviceStatus.Status -ne 'Stopped')
                     {                    
                         write-host "$serviceName on $currentComputer still Running, attempting to stop again" -ForegroundColor Yellow
-                        Stop-Service $serviceName
+                        Stop-Service -InputObject $serviceStatus
                         Start-Sleep -seconds 10
                         $serviceStatus.Refresh()
                             if($serviceStatus.Status -eq 'Stopped')
@@ -94,14 +154,13 @@ Function Service-Stop
     }
 }
 
-# Function use to start up remote service
-# This function first checks that the host is online and responding to pings.
-# It then checks if the service is actually installed 
-# It then checks to see if the service is actually stopped first
 
-Function Service-Start
+# Function to restart Service - It is a stop followed by a start to ensure it stop / starts it properly.
+# Not an easy way to check if the restart command completed succesfully!
+
+Function Service-Restart
 {
-    $computerServiceCantStart = @()
+    $computerServiceCantStop = @()
     $inputfile = Get-FileName "C:\"
     $computers = get-content $inputfile
     ForEach ($currentComputer in $computers)
@@ -116,19 +175,47 @@ Function Service-Start
             Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
             $computerServiceNotPresent += "`n$currentComputer"
          }   
-            # when computer is confirmed online check the services of that computer & start if required 
+            # when computer is confirmed online check the services of that computer & stop if required 
+            if($serviceStatus.Status -eq "Running")
+            {
+                Write-Host "$currentComputer Service is Running, stopping $serviceName" -ForegroundColor Yellow
+                Stop-Service -InputObject $serviceStatus
+                Start-Sleep -seconds 5
+                $serviceStatus.Refresh()
+                $a = 0
+                    # check if the service actually stopped and attempt to shut the service down 5 times with 10 seconds in between each attempt
+                    while ($serviceStatus.Status -ne 'Stopped')
+                    {                    
+                        write-host "$serviceName on $currentComputer still Running, attempting to stop again" -ForegroundColor Yellow
+                        Stop-Service -InputObject $serviceStatus
+                        Start-Sleep -seconds 10
+                        $serviceStatus.Refresh()
+                            if($serviceStatus.Status -eq 'Stopped')
+                            {
+                                break
+                            }
+                            $a+=1
+                            if($a -gt 3)
+                            {
+                                write-host "$serviceName could not be stopped, skipping $currentComputer" -ForegroundColor Red
+                                $computerServiceCantStop += "`n$currentComputer"
+                                break
+                            }
+                    }
+            }
             if($serviceStatus.Status -eq "Stopped")
             {
+                $computerServiceCantStartBack = @()
                 Write-Host "$currentComputer Service is Stopped, Starting $serviceName" -ForegroundColor Yellow
                 Start-Service -InputObject $serviceStatus
                 Start-Sleep -seconds 5
                 $serviceStatus.Refresh()
                 $a = 0
-                    # check if the service actually stopped and attempt to shut the service down 5 times with 10 seconds in between each attempt
+                    # check if the service actually started and attempt to start the service 5 times with 10 seconds in between each attempt
                     while ($serviceStatus.Status -ne 'Running')
                     {                    
                         write-host "$serviceName on $currentComputer still Stopped, attempting to start again" -ForegroundColor Yellow
-                        Start-Service $serviceName
+                        Start-Service -InputObject $serviceStatus
                         Start-Sleep -seconds 10
                         $serviceStatus.Refresh()
                             if($serviceStatus.Status -eq 'Running')
@@ -138,8 +225,8 @@ Function Service-Start
                             $a+=1
                             if($a -gt 3)
                             {
-                                write-host "$serviceName could not be started, skipping $currentComputer" -ForegroundColor Red
-                                $computerServiceCantStart += "`n$currentComputer"
+                                write-host "$serviceName could not be started back up, skipping $currentComputer" -ForegroundColor Red
+                                $computerServiceCantStartBack += "`n$currentComputer"
                                 break
                             }
                     }
