@@ -1,4 +1,4 @@
-﻿# setting up the enviroment for prompt box
+﻿# Function to select file with popup browse window
 Function Get-FileName($initialDirectory)
 {
     [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
@@ -10,11 +10,11 @@ Function Get-FileName($initialDirectory)
     $OpenFileDialog.filename
 }
 
-# get input csv files
+# get input csv files using the Function Get-FileName
 $inputfile = Get-FileName "C:\"
 $computers = get-content $inputfile
 
-# service name shiz
+# service name
 $serviceName = 'SplunkForwarder'
 
 # Where the file/Folder is located that you would like to be deleted (\\$currentComputer\c$\ should always remain the same - only change the bit after this)
