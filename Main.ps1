@@ -183,4 +183,3 @@ if ($computerServiceCantStart)
 {
     Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket: $computerServiceCantStart" -ForegroundColor Red
 }
-pause
