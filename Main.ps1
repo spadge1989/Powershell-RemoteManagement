@@ -24,6 +24,7 @@ $computerServiceCantStartBack = @()
 ###### Functions ##########
 
 # Function to select file with popup browse window
+
 Function Get-FileName($initialDirectory)
 {
     [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
@@ -42,20 +43,20 @@ Function Get-FileName($initialDirectory)
 
 Function Service-Start
 {
-    $computerServiceCantStart = @()
-    $inputfile = Get-FileName "C:\"
-    $computers = get-content $inputfile
+    $script:computerServiceCantStart = @()
+    $script:inputfile = Get-FileName "C:\"
+    $script:computers = get-content $inputfile
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
         Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
         Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
-        $serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
+        $script:serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
         if($ServiceError)
         {
             Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
-            $computerServiceNotPresent += "`n$currentComputer"
+            $script:computerServiceNotPresent += "`n$currentComputer"
          }   
             # when computer is confirmed online check the services of that computer & start if required 
             if($serviceStatus.Status -eq "Stopped")
@@ -80,7 +81,7 @@ Function Service-Start
                             if($a -gt 3)
                             {
                                 write-host "$serviceName could not be started, skipping $currentComputer" -ForegroundColor Red
-                                $computerServiceCantStart += "`n$currentComputer"
+                                $script:computerServiceCantStart += "`n$currentComputer"
                                 break
                             }
                     }
@@ -89,7 +90,7 @@ Function Service-Start
         else
         {
             Write-Host "$currentComputer is Down" -ForegroundColor Red
-            $computersDown += "`n$currentComputer"
+            $script:computersDown += "`n$currentComputer"
         }
     }
 }
@@ -102,20 +103,20 @@ Function Service-Start
 
 Function Service-Stop
 {
-    $computerServiceCantStop = @()
-    $inputfile = Get-FileName "C:\"
-    $computers = get-content $inputfile
+    $script:computerServiceCantStop = @()
+    $script:inputfile = Get-FileName "C:\"
+    $script:computers = get-content $inputfile
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
         Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
         Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
-        $serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
+        $script:serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
         if($ServiceError)
         {
             Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
-            $computerServiceNotPresent += "`n$currentComputer"
+            $script:computerServiceNotPresent += "`n$currentComputer"
          }   
             # when computer is confirmed online check the services of that computer & stop if required 
             if($serviceStatus.Status -eq "Running")
@@ -140,7 +141,7 @@ Function Service-Stop
                             if($a -gt 3)
                             {
                                 write-host "$serviceName could not be stopped, skipping $currentComputer" -ForegroundColor Red
-                                $computerServiceCantStop += "`n$currentComputer"
+                                $script:computerServiceCantStop += "`n$currentComputer"
                                 break
                             }
                     }
@@ -149,7 +150,7 @@ Function Service-Stop
         else
         {
             Write-Host "$currentComputer is Down" -ForegroundColor Red
-            $computersDown += "`n$currentComputer"
+            $script:computersDown += "`n$currentComputer"
         }
     }
 }
@@ -160,20 +161,20 @@ Function Service-Stop
 
 Function Service-Restart
 {
-    $computerServiceCantStop = @()
-    $inputfile = Get-FileName "C:\"
-    $computers = get-content $inputfile
+    $script:computerServiceCantStop = @()
+    $script:inputfile = Get-FileName "C:\"
+    $script:computers = get-content $inputfile
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
         Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
         Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
-        $serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
+        $script:serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
         if($ServiceError)
         {
             Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
-            $computerServiceNotPresent += "`n$currentComputer"
+            $script:computerServiceNotPresent += "`n$currentComputer"
          }   
             # when computer is confirmed online check the services of that computer & stop if required 
             if($serviceStatus.Status -eq "Running")
@@ -205,7 +206,7 @@ Function Service-Restart
             }
             if($serviceStatus.Status -eq "Stopped")
             {
-                $computerServiceCantStartBack = @()
+                $script:computerServiceCantStartBack = @()
                 Write-Host "$currentComputer Service is Stopped, Starting $serviceName" -ForegroundColor Yellow
                 Start-Service -InputObject $serviceStatus
                 Start-Sleep -seconds 5
@@ -226,7 +227,7 @@ Function Service-Restart
                             if($a -gt 3)
                             {
                                 write-host "$serviceName could not be started back up, skipping $currentComputer" -ForegroundColor Red
-                                $computerServiceCantStartBack += "`n$currentComputer"
+                                $script:computerServiceCantStartBack += "`n$currentComputer"
                                 break
                             }
                     }
@@ -235,41 +236,8 @@ Function Service-Restart
         else
         {
             Write-Host "$currentComputer is Down" -ForegroundColor Red
-            $computersDown += "`n$currentComputer"
+            $script:computersDown += "`n$currentComputer"
         }
-    }
-}
-
-# Function to list Results - this just lists out from the arrays
-
-Function Results
-{
-    cls
-    Write-Host "`n====== Results - Only displayed if items failed during the script ======`n"
-    Write-Host "====== Note: These are cleared each time another option is selected ======"
-    if ($computersDown)
-    {
-        Write-Host "List of Computers that did not respond to a Ping (appeared offline - suggest trying these seperate/manually): $computersDown" -ForegroundColor Red
-    }
-    if ($computerServiceNotPresent)
-    {
-        Write-Host "List of Computers that did not appear to have the service installed: $computerServiceNotPresent" -ForegroundColor Red
-    }
-    if ($computerServiceCantStop)
-    {
-        Write-Host "List of Computers where the $serviceName service could not be stopped: $computerServiceCantStop" -ForegroundColor Red
-    }
-    if ($computerFileDeletionFailed)
-    {
-        Write-Host "List of Computers where the FishBucket could not be deleted but is present ($serviceName service will remain offline): $computerFileDeletionFailed" -ForegroundColor Red
-    }
-    if ($computerServiceCantStart)
-    {
-        Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket: $computerServiceCantStart" -ForegroundColor Red
-    }
-    if ($computerServiceCantStartBack)
-    {
-        Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer: $computerServiceCantStartBack"  -ForegroundColor Red
     }
 }
 
@@ -278,10 +246,10 @@ Function Results
 
 Function Delete-File-With-Service-Restart
 {
-$computerFileDeletionFailed = @()
-$inputfile = Get-FileName "C:\"
-$computers = get-content $inputfile
-$file = "\\$currentComputer" + "$fileInput"
+$script:computerFileDeletionFailed = @()
+$script:inputfile = Get-FileName "C:\"
+$script:computers = get-content $inputfile
+$script:file = "\\$currentComputer" + "$fileInput"
 
 ForEach ($currentComputer in $computers)
 {
@@ -290,11 +258,11 @@ ForEach ($currentComputer in $computers)
     {        
         Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
         Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
-        $serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
+        $script:serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
         if($ServiceError)
         {
             Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
-            $computerServiceNotPresent += "`n$currentComputer"
+            $script:computerServiceNotPresent += "`n$currentComputer"
          }   
             # when computer is confirmed online check the services of that computer & stop if required 
             if($serviceStatus.Status -eq "Running")
@@ -319,7 +287,7 @@ ForEach ($currentComputer in $computers)
                             if($a -gt 3)
                             {
                                 write-host "$serviceName could not be stopped, skipping $currentComputer" -ForegroundColor Red
-                                $computerServiceCantStop += "`n$currentComputer"
+                                $script:computerServiceCantStop += "`n$currentComputer"
                                 break
                             }
                     }
@@ -349,7 +317,7 @@ ForEach ($currentComputer in $computers)
                         if($b -gt 3)
                         {
                             Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
-                            $computerFileDeletionFailed += "`n$currentComputer"
+                            $script:computerFileDeletionFailed += "`n$currentComputer"
                             break
                         }
                     }
@@ -380,7 +348,7 @@ ForEach ($currentComputer in $computers)
                                 if($c -gt 3)
                                     {
                                     write-host "$serviceName could not be Started back up, skipping $currentComputer" -ForegroundColor Red
-                                    $computerServiceCantStart += "`n$currentComputer"
+                                    $script:computerServiceCantStart += "`n$currentComputer"
                                     break
                                 }
                         }
@@ -396,7 +364,7 @@ ForEach ($currentComputer in $computers)
         else
         {
             Write-Host "$currentComputer is Down" -ForegroundColor Red
-            $computersDown += "`n$currentComputer"
+            $script:computersDown += "`n$currentComputer"
         }
     }
 }
@@ -405,10 +373,10 @@ ForEach ($currentComputer in $computers)
 
 Function Delete-File
 {
-    $computerFileDeletionFailed = @()
-    $inputfile = Get-FileName "C:\"
-    $computers = get-content $inputfile
-    $file = "\\$currentComputer" + "$fileInput"
+    $script:computerFileDeletionFailed = @()
+    $script:inputfile = Get-FileName "C:\"
+    $script:computers = get-content $inputfile
+    $script:file = "\\$currentComputer" + "$fileInput"
 
     ForEach ($currentComputer in $computers)
     {
@@ -431,7 +399,7 @@ Function Delete-File
                 if($b -gt 3)
                 {
                     Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
-                    $computerFileDeletionFailed += "`n$currentComputer"
+                    $script:computerFileDeletionFailed += "`n$currentComputer"
                     break
                 }
             }
@@ -439,7 +407,41 @@ Function Delete-File
     }
 }
 
-# Function for the Menu
+# Function to list Results - this just lists out from the arrays
+
+Function Results
+{
+    cls
+    Write-Host "`n====== Results - Only displayed if items failed during the script ======`n"
+    Write-Host "====== Note: These are cleared each time another option is selected ======`n"
+    if ($computersDown)
+    {
+        Write-Host "List of Computers that did not respond to a Ping (appeared offline - suggest trying these seperate/manually): $computersDown" -ForegroundColor Red
+    }
+    if ($computerServiceNotPresent)
+    {
+        Write-Host "List of Computers that did not appear to have the service installed: $computerServiceNotPresent" -ForegroundColor Red
+    }
+    if ($computerServiceCantStop)
+    {
+        Write-Host "List of Computers where the $serviceName service could not be stopped: $computerServiceCantStop" -ForegroundColor Red
+    }
+    if ($computerFileDeletionFailed)
+    {
+        Write-Host "List of Computers where the FishBucket could not be deleted but is present ($serviceName service will remain offline): $computerFileDeletionFailed" -ForegroundColor Red
+    }
+    if ($computerServiceCantStart)
+    {
+        Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket: $computerServiceCantStart" -ForegroundColor Red
+    }
+    if ($computerServiceCantStartBack)
+    {
+        Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer: $computerServiceCantStartBack"  -ForegroundColor Red
+    }
+}
+
+
+# Function for the Main-Menu
 Function User-Menu
 {
     param 
@@ -479,12 +481,6 @@ Function 1Sub-Menu
 Write-Host "`n================ $Title ================`n"
 Write-Host "1. Change Service. Currently: $serviceName"
 Write-Host "2. Change File/Folder to be deleted on remote computers. Currently: $fileInput"
-Write-Host "3. TBC"
-Write-Host "4. TBC"
-Write-Host "5. TBC"
-Write-Host "6. TBC"
-Write-Host "7. TBC"
-Write-Host "8. TBC"
 Write-Host "Q: Main Menu`n"
 }
 
@@ -504,7 +500,7 @@ Function Sub-Menu-Options1
                             Write-Host "`n====== Change Service Name ======`n"
                             Write-Host "Current Service Name set to: $serviceName"
                             Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name`n"
-                            $serviceName = Read-Host -Prompt "Please enter new service name"
+                            $script:serviceName = Read-Host -Prompt "Please enter new service name"
                         }
                         '2'
                         {
@@ -513,37 +509,7 @@ Function Sub-Menu-Options1
                             Write-Host "Current Location set to: $fileInput"
                             Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
                             Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
-                            $fileInput = Read-Host -Prompt "Enter New Location"
-                        }
-                        '3'
-                        {
-                            cls
-                            'You chose Sub-option #3'
-                        }
-                        '4'
-                        {
-                            cls
-                            'You chose Sub-option #4'
-                        }
-                        '5'
-                        {
-                            cls
-                            'You chose Sub-option #5'
-                        }
-                        '6'
-                        {
-                            cls
-                            'You chose Sub-option #6'
-                        }
-                        '7'
-                        {
-                            cls
-                            'You chose Sub-option #8'
-                        }
-                        '8'
-                        {
-                            cls
-                            'You chose Sub-option #8'
+                            $script:fileInput = Read-Host -Prompt "Enter New Location"
                         }
                         'q'
                         {
@@ -597,7 +563,7 @@ do
            '9'
            { 
                 cls 
-                'You chose option #6' 
+                Results 
            }
            'q' 
            { 
@@ -610,14 +576,3 @@ do
 until ($input -eq 'q') 
 
 ############# End of Main Menu ###############
-
-
-###### Computer list parameters / execution ########
-
-# get input csv files using the Function Get-FileName
-$inputfile = Get-FileName "C:\"
-$computers = get-content $inputfile
-# File locations plus the Current computer settings put together with the fileInput (default or specificed by user)
-$file = "\\$currentComputer" + "$fileInput"
-
-##### End of computer list parameters 
