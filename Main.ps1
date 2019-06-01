@@ -161,6 +161,7 @@ ForEach ($currentComputer in $computers)
             Write-Host "$currentComputer is Down" -ForegroundColor Red
             $computersDown += "`n$currentComputer"
         }
+        Write-Host "Script Completed"
         Write-Host "========================================"
 }
 if ($computersDown)
