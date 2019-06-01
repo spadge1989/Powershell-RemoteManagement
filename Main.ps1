@@ -11,6 +11,13 @@ $serviceName = 'SplunkForwarder'
 # Default location of File/Folder to be deleted
 $fileInput = "\d$\Program Files\SplunkUniversalForwarder\var\lib\splunk\fishbucket"
 
+# Clearing of some Variables to make sure they are blank to start
+
+$computers = ""
+$localMSIPackage = ""
+$inputfilemsi = ""
+$inputfile = ""
+
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
 $computerServiceCantStop = @()
@@ -38,6 +45,20 @@ Function Get-FileName($initialDirectory)
     $OpenFileDialog.filename
 }
 
+# Same as function above but used for the MSI selection in the local system
+
+Function Get-FileNameMSIPackage($initialDirectory)
+{
+    Write-Host "`nSelect the MSI you wish to install on the endpoints on the local Machine`n"
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
+    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog  
+    $OpenFileDialog.Title = "Select MSI Package"   
+    $OpenFileDialog.initialDirectory = $initialDirectory
+    $OpenFileDialog.filter = "MSI (*.msi)| *.msi"
+    $OpenFileDialog.ShowDialog() | Out-Null
+    $OpenFileDialog.filename
+}
+
 # Function use to start up remote service
 # This function first checks that the host is online and responding to pings.
 # It then checks if the service is actually installed 
@@ -47,13 +68,14 @@ Function Service-Start
 {
     $script:computerServiceCantStart = @()
     $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "Cancel")
+    if ($inputfile -ne "")
     {
     $script:computers = get-content $inputfile
     }
     else
     {
         Write-Host "Cancled by user"
+        return
     }
     ForEach ($currentComputer in $computers)
     {
@@ -118,13 +140,14 @@ Function Service-Stop
 {
     $script:computerServiceCantStop = @()
     $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "Cancel")
+    if ($inputfile -ne "")
     {
     $script:computers = get-content $inputfile
     }
     else
     {
         Write-Host "Cancled by user"
+        return
     }
     ForEach ($currentComputer in $computers)
     {
@@ -187,13 +210,14 @@ Function Service-Restart
 {
     $script:computerServiceCantStop = @()
     $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "Cancel")
+    if ($inputfile -ne "")
     {
     $script:computers = get-content $inputfile
     }
     else
     {
         Write-Host "Cancled by user"
+        return
     }
     ForEach ($currentComputer in $computers)
     {
@@ -278,13 +302,14 @@ Function Delete-File
 {
     $script:computerFileDeletionFailed = @()
     $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "Cancel")
+    if ($inputfile -ne "")
     {
     $script:computers = get-content $inputfile
     }
     else
     {
         Write-Host "Cancled by user"
+        return
     }
     $script:file = "\\$currentComputer" + "$fileInput"
 
@@ -333,13 +358,14 @@ Function Delete-File-With-Service-Restart
 {
     $script:computerFileDeletionFailed = @()
     $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "Cancel")
+    if ($inputfile -ne "")
     {
         $script:computers = get-content $inputfile
     }
     else
     {
         Write-Host "Cancled by user"
+        return
     }
     $script:file = "\\$currentComputer" + "$fileInput"
 
@@ -467,13 +493,25 @@ Function Task-Install
 {
     $script:computerTaskInstallFalied = @()
     $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "Cancel")
+    if ($inputfile -ne "")
     {
     $script:computers = get-content $inputfile
     }
     else
     {
         Write-Host "Cancled by user"
+        return
+    }
+
+    $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
+    if ($inputfilemsi -ne "")
+    {
+    $script:localMSIPackage = get-content $inputfilemsi
+    }
+    else
+    {
+        Write-Host "Cancled by user"
+        return
     }
 
     ForEach ($currentComputer in $computers)
@@ -481,30 +519,9 @@ Function Task-Install
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
-            if (test-path -path $file)
-            {
-                Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
-                Remove-Item $file -force -recurse
-                Start-Sleep -seconds 10
-                while (test-path -path $file)
-                {
-                    Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
-                    Remove-Item $file -force -recurse
-                    Start-Sleep -seconds 10
-                    if (!(test-path -path $file))
-                    {
-                        Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
-                        break
-                    }
-                    $b+=1
-                    if($b -gt 3)
-                    {
-                        Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
-                        $script:computerFileDeletionFailed += "`n$currentComputer"
-                        break
-                    }
-                }
-            }
+            Write-Host "Attempting to copy the MSI package $localMSIPackage to \\$currentComputer\c$\ ready for installation"
+
+
         }
         else
         {
@@ -581,6 +598,7 @@ Write-Host "3. Stop Service on remote windows machines within the same domain."
 Write-Host "4. Restart Service on remote windows machines within the same domain."
 Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
 Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
+Write-Host "7. Install MSI Package to remote machines."
 Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
 Write-Host "Q: Quit`n"
 }
@@ -675,6 +693,11 @@ do
            { 
                 cls 
                 Delete-File-With-Service-Restart 
+           }
+           '7'
+           { 
+                cls 
+                Task-Install
            }
            '9'
            { 
