@@ -1,4 +1,6 @@
-﻿# Function to select file with popup browse window
+﻿###### Functions ##########
+
+# Function to select file with popup browse window
 Function Get-FileName($initialDirectory)
 {
     [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
@@ -10,19 +12,125 @@ Function Get-FileName($initialDirectory)
     $OpenFileDialog.filename
 }
 
-# Intro text to the script
-Write-Host "This script can be used to do the following depending on the options you select: `n1. Start services on remote windows machines within the same domain.`n2. Stop services on remote windows machines within the same domain.`n3. Restart services on remote windows machines within the same domain."
+# Function for the Menu
+Function User-Menu
+{
+    param 
+    (
+        [string]$Title = 'Menu'
+    )
+    cls
+Write-Host "================ $Title ================"
+Write-Host "This script can be used to do the following depending on the options you select:"
+Write-Host "1. Review/Change the default settings such as service names & file/folder locations."
+Write-Host "2. Start Service on remote windows machines within the same domain."
+Write-Host "3. Stop Service on remote windows machines within the same domain."
+Write-Host "4. Restart Service on remote windows machines within the same domain."
+Write-Host "5 Delete File/Folder on remote windows machines within the same domain."
+Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
+Write-Host "9. Print Results"
+Write-Host "'Q': Quit"
+}
+
+# Function for option 1.Sub-Menu
+
+Function 1Sub-Menu
+{
+    param 
+    (
+        [string]$Title = 'Option 1 Sub-Menu'
+    )
+    cls
+Write-Host "================ $Title ================"
+Write-Host "1. "
+Write-Host "2. Change Service. Currently: $serviceName"
+Write-Host "3. "
+Write-Host "4. "
+Write-Host "5. "
+Write-Host "6. "
+Write-Host "7. "
+Write-Host "8. "
+Write-Host "'Q': Quit"
+}
+
+############# End of Functions ################
+
+
+do 
+{ 
+     User-Menu 
+     $input = Read-Host "Please make a selection" 
+     switch ($input) 
+     { 
+           '1' 
+           { 
+                cls 
+                'You chose option #1' 
+
+
+           }
+           '2' 
+           { 
+                cls 
+                'You chose option #2' 
+
+
+           }
+           '3'
+           { 
+                cls 
+                'You chose option #3' 
+
+
+           }
+           '4'
+           { 
+                cls 
+                'You chose option #4' 
+
+
+           }
+           '5'
+           { 
+                cls 
+                'You chose option #5' 
+
+
+           }
+           '6'
+           { 
+                cls 
+                'You chose option #6' 
+
+
+           }
+           'q' 
+           { 
+                Write-Host "Thanks, goodbye"
+                return
+           } 
+     } 
+     pause 
+} 
+until ($input -eq 'q') 
+
+
+#### enviroment settings & initial settings
+
+# service name
+$serviceName = 'SplunkForwarder'
+
+
 
 
 # get input csv files using the Function Get-FileName
 $inputfile = Get-FileName "C:\"
 $computers = get-content $inputfile
 
-# service name
-$serviceName = 'SplunkForwarder'
 
-# Where the file/Folder is located that you would like to be deleted (\\$currentComputer\c$\ should always remain the same - only change the bit after this)
-$fileInput = "Program Files\SplunkUniversalForwarder\var\lib\splunk\fishbucket"
+
+# Default location of File/Folder to be deleted
+$fileInput = "\d$\Program Files\SplunkUniversalForwarder\var\lib\splunk\fishbucket"
 
 # Main script to do services on endpoints
 $computersDown = @()
@@ -42,14 +150,14 @@ Write-Host "Would you like to change the service name - currently $serviceName"
 
 Write-Host "Would you like to change the file/folder location that gets deleted - currently $fileInput"
     $fileRead = Read-Host " ( y / n ) (default n) " 
-    Switch ($fileRead) 
+    Switch ($fileRead)
      { 
-       Y {$fileInput = Read-Host -Prompt "Please enter new File/Folder & path you require to be deleted removing the leading \ `n(e.g. c:\Program Files\randomProgram\folderToBeDeleted = Program Files\randomProgram\folderToBeDeleted)"} 
+       Y {$file = Read-Host -Prompt "Please enter new File/Folder & path you require to be deleted removing the leading \ `n(e.g. c:\Program Files\randomProgram\folderToBeDeleted = Program Files\randomProgram\folderToBeDeleted)"} 
        N {} 
        Default {} 
      }
 
-$file = "\\$currentComputer\d$\" + "$fileInput"
+$file = "\\$currentComputer" + "$fileInput"
 
 ForEach ($currentComputer in $computers)
 {
