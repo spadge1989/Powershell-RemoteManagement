@@ -277,7 +277,7 @@ Function Results
 # This first stops the remote service, then deletes the file then starts the service back up
 
 Function Delete-File-With-Service-Restart
-
+{
 $computerFileDeletionFailed = @()
 $inputfile = Get-FileName "C:\"
 $computers = get-content $inputfile
@@ -398,45 +398,46 @@ ForEach ($currentComputer in $computers)
             Write-Host "$currentComputer is Down" -ForegroundColor Red
             $computersDown += "`n$currentComputer"
         }
-
+    }
+}
 
 # Function to only delete remote file and check it was done
 
 Function Delete-File
-
-$computerFileDeletionFailed = @()
-$inputfile = Get-FileName "C:\"
-$computers = get-content $inputfile
-$file = "\\$currentComputer" + "$fileInput"
-
-ForEach ($currentComputer in $computers)
 {
-    if (test-path -path $file)
+    $computerFileDeletionFailed = @()
+    $inputfile = Get-FileName "C:\"
+    $computers = get-content $inputfile
+    $file = "\\$currentComputer" + "$fileInput"
+
+    ForEach ($currentComputer in $computers)
     {
-        Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
-        Remove-Item $file -force -recurse
-        Start-Sleep -seconds 10
-        while (test-path -path $file)
+        if (test-path -path $file)
         {
-            Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
+            Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
             Remove-Item $file -force -recurse
             Start-Sleep -seconds 10
-            if (!(test-path -path $file))
+            while (test-path -path $file)
             {
-                Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
-                break
-            }
-            $b+=1
-            if($b -gt 3)
-            {
-                Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
-                $computerFileDeletionFailed += "`n$currentComputer"
-                break
+                Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
+                Remove-Item $file -force -recurse
+                Start-Sleep -seconds 10
+                if (!(test-path -path $file))
+                {
+                    Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
+                    break
+                }
+                $b+=1
+                if($b -gt 3)
+                {
+                    Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
+                    $computerFileDeletionFailed += "`n$currentComputer"
+                    break
+                }
             }
         }
     }
 }
-
 
 # Function for the Menu
 Function User-Menu
@@ -620,123 +621,3 @@ $computers = get-content $inputfile
 $file = "\\$currentComputer" + "$fileInput"
 
 ##### End of computer list parameters 
-
-
-### Main script running  ####
-ForEach ($currentComputer in $computers)
-{
-    # initial stopping of running services / check if service is present / detected & if host is actualy online via ping
-    if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
-    {        
-        Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
-        Write-Host "Checking $serviceName status on computer $currentComputer" -ForegroundColor Yellow
-        $serviceStatus = Get-Service -Computer $currentComputer -Name $serviceName -erroraction 'silentlycontinue' -ErrorVariable ServiceError
-        if($ServiceError)
-        {
-            Write-Host "$currentComputer does not appear to have the $serviceName installed" -ForegroundColor Red
-            $computerServiceNotPresent += "`n$currentComputer"
-         }   
-            # when computer is confirmed online check the services of that computer & stop if required 
-            if($serviceStatus.Status -eq "Running")
-            {
-                Write-Host "$currentComputer Service is Running, stopping $serviceName" -ForegroundColor Yellow
-                Stop-Service -InputObject $serviceStatus
-                Start-Sleep -seconds 5
-                $serviceStatus.Refresh()
-                $a = 0
-                    # check if the service actually stopped and attempt to shut the service down 5 times with 10 seconds in between each attempt
-                    while ($serviceStatus.Status -ne 'Stopped')
-                    {                    
-                        write-host "$serviceName on $currentComputer still Running, attempting to stop again" -ForegroundColor Yellow
-                        Stop-Service -InputObject $serviceStatus
-                        Start-Sleep -seconds 10
-                        $serviceStatus.Refresh()
-                            if($serviceStatus.Status -eq 'Stopped')
-                            {
-                                break
-                            }
-                            $a+=1
-                            if($a -gt 3)
-                            {
-                                write-host "$serviceName could not be stopped, skipping $currentComputer" -ForegroundColor Red
-                                $computerServiceCantStop += "`n$currentComputer"
-                                break
-                            }
-                    }
-            }        
-        
-            # Once the service has been confirmed to be stopped continue script - Deletion of the fishbucket
-            if($serviceStatus.Status -eq "Stopped")
-            {
-                Write-Host "$serviceName on $currentComputer is Stopped, continuing script" -ForegroundColor Green
-                # Delete FishBucket
-                if (test-path -path $file)
-                {
-                    Write-Host "FishBucket Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
-                    Remove-Item $file -force -recurse
-                    Start-Sleep -seconds 10
-                    while (test-path -path $file)
-                    {
-                        Write-Host "FishBucket on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
-                        Remove-Item $file -force -recurse
-                        Start-Sleep -seconds 10
-                        if (!(test-path -path $file))
-                        {
-                            break
-                        }
-                        $b+=1
-                        if($b -gt 3)
-                        {
-                            Write-Host "Failed to delete FishBucket on $currentComputer, skipping" -ForegroundColor Red
-                            $computerFishBucketDeletionFailed += "`n$currentComputer"
-                            break
-                        }
-                    }
-                }
-                if (!(test-path $file))
-                {
-                    Write-Host "FishBucket on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
-                    # Resume service after deletion
-                    if($serviceStatus.Status -eq "Stopped")
-                    {
-                    Write-Host "$currentComputer Service is Stopped, starting back up $serviceName" -ForegroundColor Yellow
-                    Start-Service -InputObject $serviceStatus
-                    Start-Sleep -seconds 5
-                    $serviceStatus.Refresh()
-                    $c = 0
-                        # check if the service actually started and attempt to start the service down 5 times with 10 seconds in between each attempt
-                        while ($serviceStatus.Status -ne 'Running')
-                        {                    
-                            write-host "$serviceName on $currentComputer still not started, attempting to start again" -ForegroundColor Yellow
-                            Stop-Service $serviceName
-                            Start-Sleep -seconds 10
-                            $serviceStatus.Refresh()
-                                if($serviceStatus.Status -eq 'Running')
-                                {
-                                    break
-                                }
-                                $c+=1
-                                if($c -gt 3)
-                                    {
-                                    write-host "$serviceName could not be Started back up, skipping $currentComputer" -ForegroundColor Red
-                                    $computerServiceCantStart += "`n$currentComputer"
-                                    break
-                                }
-                        }
-                    }
-                    if($serviceStatus.Status -eq "Running")
-                    {
-                        write-host "Succesfully started back up $serviceName on $currentComputer" -ForegroundColor Green
-                    }
-                }
-            }
-        }
-        # Used if the endpoint cannot be connected to
-        else
-        {
-            Write-Host "$currentComputer is Down" -ForegroundColor Red
-            $computersDown += "`n$currentComputer"
-        }
-        Write-Host "Script Completed"
-        Write-Host "========================================"
-}
