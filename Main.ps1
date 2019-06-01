@@ -17,6 +17,9 @@ $computers = ""
 $localMSIPackage = ""
 $inputfilemsi = ""
 $inputfile = ""
+$LocalMSIPacageFile = ""
+$destinationLocation = ""
+$taskCheck = ""
 
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
@@ -513,15 +516,90 @@ Function Task-Install
         Write-Host "Cancled by user"
         return
     }
-
+    $script:LocalMSIPacageFile = Split-Path $inputfilemsi -leaf
     ForEach ($currentComputer in $computers)
     {
+        $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\" + "$LocalMSIPacageFile"
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
-            Write-Host "Attempting to copy the MSI package $localMSIPackage to \\$currentComputer\c$\ ready for installation"
+            Write-Host "Attempting to copy the MSI package from $inputfilemsi to $destinationLocation" -ForegroundColor Yellow
+            # Check if the file already exists first - if it doesnt attempt to copy the file
+            if (!(test-path -path $destinationLocation))
+            {
+                copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null 
+                if (test-path -path $destinationLocation)
+                {
+                    Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process"
+                    $script:taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
+                    if ($taskCheck)
+                    {
+                        Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer"
+                        pause
+                    }
+                    else
+                    {
+                        Write-Host "success"
+                        pause
+                        schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet"
+                    }
+                }
+                else 
+                {
+                    Write-Host "$LocalMSIPacageFile Failed to be copied to $currentComputer for unknown reason, skipping" -ForegroundColor Red
+                    $script:computerTaskInstallFalied += "`n$currentComputer"
+                }
 
+            }
+            elseif (test-path -path $destinationLocation)
+            {
+                Write-Host "$LocalMSIPacageFile File appears to already be present on $currentComputer" -ForegroundColor Yellow
+                    Write-Host "1. Remove the File, re-add it and continue with install."
+                    Write-Host "2. Use the existing file to install the MSI & remove it upon completion."
+                    Write-Host "3. Use the exisitng file to install the MSI & leave it in place."
+                    Write-Host "4. Tuck tail between legs and skip this computer!"
+                    $input = Read-Host "Please make a selection"
+                    switch ($input)
+                    {
+                        '1'
+                        {
+                            Remove-Item $destinationLocation -force -recurse
+                            
+                            if (!(test-path -path $destinationLocation))
+                            {
+                                copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null
+                                if (test-path -path $destinationLocation)
+                                {
+                                    Write-Host "Succesfully Deleted & re-added $LocalMSIPacageFile on $currentComputer, Initiating the Install process"
 
+                                }
+                            }
+                            else
+                            {
+                                Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                $script:computerTaskInstallFalied += "`n$currentComputer"
+                            }
+                        }
+                        '2'
+                        {
+                            
+                        }
+                        '3'
+                        {
+                            
+                        }
+                        '4'
+                        {
+                            Write-Host "$currentComputer Skipped"
+                            $script:computerTaskInstallFalied += "`n$currentComputer"
+                        }
+                    }                 
+            }
+            else 
+            {
+                Write-Host "something went wrong with $currentComputer, Skipping"
+                $script:computerTaskInstallFalied += "`n$currentComputer"
+            }
         }
         else
         {
@@ -598,7 +676,7 @@ Write-Host "3. Stop Service on remote windows machines within the same domain."
 Write-Host "4. Restart Service on remote windows machines within the same domain."
 Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
 Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
-Write-Host "7. Install MSI Package to remote machines."
+Write-Host "7. --DEV PHASE Install MSI Package to remote machines. DEV PHASE--"
 Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
 Write-Host "Q: Quit`n"
 }
