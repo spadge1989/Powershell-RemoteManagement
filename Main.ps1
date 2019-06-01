@@ -10,6 +10,10 @@ Function Get-FileName($initialDirectory)
     $OpenFileDialog.filename
 }
 
+# Intro text to the script
+Write-Host "This script can be used to do the following depending on the options you select: `n1. Start services on remote windows machines within the same domain.`n2. Stop services on remote windows machines within the same domain.`n3. Restart services on remote windows machines within the same domain."
+
+
 # get input csv files using the Function Get-FileName
 $inputfile = Get-FileName "C:\"
 $computers = get-content $inputfile
