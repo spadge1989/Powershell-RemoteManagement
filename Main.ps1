@@ -795,7 +795,7 @@ Function Sub-Menu-Options1
                         '2'
                         {
                             cls
-                            Write-Host "`n====== Change File Input ======`n"
+                            Write-Host "`n====== Change File Location ======`n"
                             Write-Host "Current Location set to: $fileInput"
                             Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
                             Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
