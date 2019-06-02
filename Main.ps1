@@ -6,10 +6,10 @@
 ##### Default Variables ###########
 
 # Variable for Service
-$serviceName = 'SplunkForwarder'
+$serviceName = ""
 
 # Default location of File/Folder to be deleted
-$fileInput = "\d$\Program Files\SplunkUniversalForwarder\var\lib\splunk\fishbucket"
+$fileInput = ""
 
 # Clearing of some Variables to make sure they are blank to start
 
@@ -72,16 +72,6 @@ Function Get-FileNameMSIPackage($initialDirectory)
 Function Service-Start
 {
     $script:computerServiceCantStart = @()
-    $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "")
-    {
-    $script:computers = get-content $inputfile
-    }
-    else
-    {
-        Write-Host "Cancled by user" -ForegroundColor Red
-        return
-    }
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
@@ -147,16 +137,6 @@ Function Service-Start
 Function Service-Stop
 {
     $script:computerServiceCantStop = @()
-    $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "")
-    {
-    $script:computers = get-content $inputfile
-    }
-    else
-    {
-        Write-Host "Cancled by user" -ForegroundColor Red
-        return
-    }
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
@@ -220,16 +200,6 @@ Function Service-Stop
 Function Service-Restart
 {
     $script:computerServiceCantStop = @()
-    $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "")
-    {
-    $script:computers = get-content $inputfile
-    }
-    else
-    {
-        Write-Host "Cancled by user" -ForegroundColor Red
-        return
-    }
     ForEach ($currentComputer in $computers)
     {
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
@@ -315,16 +285,6 @@ Function Service-Restart
 Function Delete-File
 {
     $script:computerFileDeletionFailed = @()
-    $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "")
-    {
-    $script:computers = get-content $inputfile
-    }
-    else
-    {
-        Write-Host "Cancled by user"  -ForegroundColor Red
-        return
-    }
     $script:file = "\\$currentComputer" + "$fileInput"
 
     ForEach ($currentComputer in $computers)
@@ -374,16 +334,6 @@ Function Delete-File
 Function Delete-File-With-Service-Restart
 {
     $script:computerFileDeletionFailed = @()
-    $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "")
-    {
-        $script:computers = get-content $inputfile
-    }
-    else
-    {
-        Write-Host "Cancled by user"
-        return
-    }
     $script:file = "\\$currentComputer" + "$fileInput"
 
     ForEach ($currentComputer in $computers)
@@ -514,27 +464,6 @@ Function Task-Install
     $script:computerTaskInstallFalied = @()
     $script:computerTaskInstallPrevious = @()
     $script:computerTaskCleanupFailed = @()
-    $script:inputfile = Get-FileName "C:\"
-    if ($inputfile -ne "")
-    {
-    $script:computers = get-content $inputfile
-    }
-    else
-    {
-        Write-Host "Cancled by user" -ForegroundColor Red
-        return
-    }
-
-    $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
-    if ($inputfilemsi -ne "")
-    {
-    $script:localMSIPackage = get-content $inputfilemsi
-    }
-    else
-    {
-        Write-Host "Cancled by user" -ForegroundColor Red
-        return
-    }
     $script:LocalMSIPacageFile = Split-Path $inputfilemsi -leaf
     ForEach ($currentComputer in $computers)
     {
@@ -777,30 +706,30 @@ Function Results
 # Function for the Main-Menu
 Function User-Menu
 {
-    param
-    (
+        param
+        (
         [string]$Title = 'Menu'
-    )
-    cls
-Write-Host "`n################################################"-ForegroundColor Green
-Write-Host "################################################"-ForegroundColor Green
-Write-Host "#### Script made by Spadge1989 - aka. Padge ####"-ForegroundColor Green
-Write-Host "##### This project can be found on GitHub ######"-ForegroundColor Green
-Write-Host "############ github.com/spadge1989 #############"-ForegroundColor Green
-Write-Host "################################################"-ForegroundColor Green
-Write-Host "################################################`n"-ForegroundColor Green
-Write-Host "================ $Title ================`n"
-Write-Host "Note: When you select an option that requires a list of computers`nyou will be prompted to select the CSV file (MUST be a .csv file)`n"
-Write-Host "This script can be used to do the following depending on the options you select:`n"
-Write-Host "1. Review/Change the default settings such as service names & file/folder locations."
-Write-Host "2. Start Service on remote windows machines within the same domain."
-Write-Host "3. Stop Service on remote windows machines within the same domain."
-Write-Host "4. Restart Service on remote windows machines within the same domain."
-Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
-Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
-Write-Host "7. --ALPHA PHASE Install MSI Package to remote machines. ALPHA PHASE (report bugs please)--"
-Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
-Write-Host "Q: Quit`n"
+        )
+        cls
+        Write-Host "`n################################################"-ForegroundColor Green
+        Write-Host "################################################"-ForegroundColor Green
+        Write-Host "#### Script made by Spadge1989 - aka. Padge ####"-ForegroundColor Green
+        Write-Host "##### This project can be found on GitHub ######"-ForegroundColor Green
+        Write-Host "############ github.com/spadge1989 #############"-ForegroundColor Green
+        Write-Host "################################################"-ForegroundColor Green
+        Write-Host "################################################`n"-ForegroundColor Green
+        Write-Host "================ $Title ================`n"
+        Write-Host "Note: When you select an option that requires a list of computers`nyou will be prompted to select the CSV file (MUST be a .csv file)`n"
+        Write-Host "This script can be used to do the following depending on the options you select:`n"
+        Write-Host "1. Review/Change the settings such as service names & file/folder locations."
+        Write-Host "2. Start Service on remote windows machines within the same domain."
+        Write-Host "3. Stop Service on remote windows machines within the same domain."
+        Write-Host "4. Restart Service on remote windows machines within the same domain."
+        Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
+        Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
+        Write-Host "7. --ALPHA PHASE Install MSI Package to remote machines. ALPHA PHASE (report bugs please)--"
+        Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
+        Write-Host "Q: Quit`n"    
 }
 
 # Function for option 1.Sub-Menu
@@ -813,8 +742,10 @@ Function 1Sub-Menu
     )
     cls
 Write-Host "`n================ $Title ================`n"
-Write-Host "1. Change Service. Currently: $serviceName"
-Write-Host "2. Change File/Folder to be deleted on remote computers. Currently: $fileInput"
+Write-Host "1. Change/Select Service. Currently: $serviceName"
+Write-Host "2. Change/Select File/Folder to be deleted on remote computers. Currently: $fileInput"
+Write-Host "3. Change/Select Computer List. Currently: $inputfile"
+Write-Host "4. Change File/Folder to be deleted on remote computers. Currently: $inputfilemsi"
 Write-Host "Q: Main Menu`n"
 }
 
@@ -831,7 +762,7 @@ Function Sub-Menu-Options1
                         '1'
                         {
                             cls
-                            Write-Host "`n====== Change Service Name ======`n"
+                            Write-Host "`n====== Change/Select Service ======`n"
                             Write-Host "Current Service Name set to: $serviceName"
                             Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name`n"
                             $script:serviceName = Read-Host -Prompt "Please enter new service name"
@@ -839,11 +770,43 @@ Function Sub-Menu-Options1
                         '2'
                         {
                             cls
-                            Write-Host "`n====== Change File Location ======`n"
+                            Write-Host "`n====== Change/Select File/Folder ======`n"
                             Write-Host "Current Location set to: $fileInput"
                             Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
                             Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
                             $script:fileInput = Read-Host -Prompt "Enter New Location"
+                        }
+                        '3'
+                        {
+                            cls
+                            Write-Host "`n====== Change/Select Computer List ======`n"
+                            Write-Host "Current Location set to: $inputfile"
+                            pause
+                            $script:inputfile = Get-FileName "C:\"
+                            if ($inputfile -ne "")
+                            {
+                            $script:computers = get-content $inputfile
+                            }
+                            else
+                            {
+                                Write-Host "Cancled by user" -ForegroundColor Red
+                            }
+                        }
+                        '4'
+                        {
+                            cls
+                            Write-Host "`n====== Change File/Folder to be deleted on remote computers ======`n"
+                            Write-Host "Current Location set to: $inputfilemsi"
+                            pause
+                            $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
+                            if ($inputfilemsi -ne "")
+                            {
+                                $script:localMSIPackage = get-content $inputfilemsi
+                            }
+                            else
+                            {
+                                Write-Host "Cancled by user" -ForegroundColor Red
+                            }
                         }
                         'q'
                         {
@@ -860,58 +823,226 @@ Function Sub-Menu-Options1
 ############# Main Menu Do loop ###############
 do 
 { 
-     User-Menu 
-     $input = Read-Host "Please make a selection" 
-     switch ($input) 
-     { 
-           '1' 
-           { 
-                cls 
-                Sub-Menu-Options1
-           }
-           '2' 
-           { 
+    User-Menu 
+    $input = Read-Host "Please make a selection" 
+    switch ($input) 
+    { 
+        '1' 
+        {
+            cls
+            Sub-Menu-Options1
+        }
+        '2' 
+        {
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($serviceName))
+            {
+                $script:serviceName = Read-Host -Prompt "Service name currently blank - Please enter service name"
+            }
+            if (($serviceName) -AND ($inputfile))
+            {
                 cls 
                 Service-Start
-           }
-           '3'
-           { 
-                cls 
-                Service-Stop
-           }
-           '4'
-           { 
-                cls 
-                Service-Restart
-           }
-           '5'
-           { 
-                cls 
-                Delete-File
-           }
-           '6'
-           { 
-                cls 
-                Delete-File-With-Service-Restart 
-           }
-           '7'
-           { 
-                cls 
-                Task-Install
-           }
-           '9'
-           { 
-                cls 
-                Results 
-           }
-           'q' 
-           { 
-                Write-Host "Thanks, goodbye"
-                return
-           } 
-     } 
-     pause 
+            }
+            else 
+            {
+                Write-Host "You need to enter a service name, list of endpoint to run this against."
+                Write-Host "You will be returned to the main menu now."
+                pause
+            }
+        }
+        '3'
+        {
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($serviceName))
+            {
+                Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name"
+                $script:serviceName = Read-Host -Prompt "Service name currently blank - Please enter service name"
+            }
+            if (($serviceName) -AND ($inputfile))
+            {
+            cls 
+            Service-Stop
+            }
+            else 
+            {
+                Write-Host "You need to enter a service name & list of endpoint to run this against."
+                Write-Host "You will be returned to the main menu now."
+                pause
+            }
+        }
+        '4'
+        {
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($serviceName))
+            {
+                Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name"
+                $script:serviceName = Read-Host -Prompt "Service name currently blank - Please enter service name"
+            }
+            if (($serviceName) -AND ($inputfile))
+            {
+            cls 
+            Service-Restart
+            }
+            else 
+            {
+                Write-Host "You need to enter a service name & list of endpoint to run this against."
+                Write-Host "You will be returned to the main menu now."
+                pause
+            }
+        }
+        '5'
+        {
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($fileInput))
+            {
+                Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
+                Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
+                $script:fileInput = Read-Host -Prompt "Enter file location to be deleted Location"
+            }
+            if (($fileInput) -AND ($inputfile))
+            {
+            cls
+            Delete-File
+            }
+            else 
+            {
+                Write-Host "You need to enter a File location to be deleted & list of endpoint to run this against."
+                Write-Host "You will be returned to the main menu now"
+                pause
+            }
+        }
+        '6'
+        { 
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($serviceName))
+            {
+                Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name"
+                $script:serviceName = Read-Host -Prompt "Service name currently blank - Please enter service name"
+            }
+            if (!($fileInput))
+            {
+                Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
+                Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
+                $script:fileInput = Read-Host -Prompt "Enter file location to be deleted Location"
+            }
+            if (($serviceName) -AND ($fileInput) -AND ($inputfile))
+            {
+            cls 
+            Delete-File-With-Service-Restart
+            }
+            else 
+            {
+                Write-Host "You need to enter a service name, File location & list of endpoint to run this against."
+                Write-Host "You will be returned to the main menu now"
+                pause
+            }
+        }
+        '7'
+        { 
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if(!($inputfilemsi))
+            {
+                $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
+                if ($inputfilemsi -ne "")
+                {
+                    $script:localMSIPackage = get-content $inputfilemsi
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (($inputfilemsi)-AND ($inputfile))
+            {
+            cls 
+            Task-Install
+            }
+            else 
+            {
+                Write-Host "You need to enter a list of endpoint to run this against & the select the MSI you wish to install from the local machine."
+                Write-Host "You will be returned to the main menu now"
+                pause
+            } 
+        }
+        '9'
+        { 
+            cls
+            Results 
+        }
+        'q' 
+        { 
+            Write-Host "Thanks, goodbye"
+            return
+        }
+    }      
 } 
-until ($input -eq 'q') 
+until ($input -eq 'q')
 
 ############# End of Main Menu ###############
