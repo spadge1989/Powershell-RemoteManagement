@@ -531,9 +531,8 @@ Function Task-Install
                 if (test-path -path $destinationLocation)
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process"
-                    $ErrorActionPreference = 'SilentlyContinue'
                     $script:taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
-                    if ($taskCheck)                                          #<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<#<LEFT OFF HERE
+                    if ($taskCheck 2>null)
                     {
                         Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Green
                         pause
@@ -544,7 +543,6 @@ Function Task-Install
                         pause
                         schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet"
                     }
-                    $ErrorActionPreference = 'Continue'
                 }
                 else 
                 {
