@@ -30,6 +30,7 @@ $computerFileDeletionFailed = @()
 $computerServiceCantStartBack = @()
 $computerTaskInstallFalied = @()
 $computerTaskInstallPrevious = @()
+$computerTaskCleanupFailed = @()
 
 ###### End of Default Variables ############
 
@@ -78,7 +79,7 @@ Function Service-Start
     }
     else
     {
-        Write-Host "Cancled by user"
+        Write-Host "Cancled by user" -ForegroundColor Red
         return
     }
     ForEach ($currentComputer in $computers)
@@ -132,6 +133,8 @@ Function Service-Start
             $script:computersDown += "`n$currentComputer"
         }
     }
+    cls
+    Results
 }
 
 
@@ -150,7 +153,7 @@ Function Service-Stop
     }
     else
     {
-        Write-Host "Cancled by user"
+        Write-Host "Cancled by user" -ForegroundColor Red
         return
     }
     ForEach ($currentComputer in $computers)
@@ -204,6 +207,8 @@ Function Service-Stop
             $script:computersDown += "`n$currentComputer"
         }
     }
+    cls
+    Results
 }
 
 
@@ -220,7 +225,7 @@ Function Service-Restart
     }
     else
     {
-        Write-Host "Cancled by user"
+        Write-Host "Cancled by user" -ForegroundColor Red
         return
     }
     ForEach ($currentComputer in $computers)
@@ -298,6 +303,8 @@ Function Service-Restart
             $script:computersDown += "`n$currentComputer"
         }
     }
+    cls
+    Results
 }
 
 # Function to only delete remote file and check it was done
@@ -312,7 +319,7 @@ Function Delete-File
     }
     else
     {
-        Write-Host "Cancled by user"
+        Write-Host "Cancled by user"  -ForegroundColor Red
         return
     }
     $script:file = "\\$currentComputer" + "$fileInput"
@@ -353,6 +360,8 @@ Function Delete-File
             $script:computersDown += "`n$currentComputer"
         }
     }
+    cls
+    Results
 }
 
 # Function to Delete remote file/folder with a service stop / started on windows machines via domain hidden shared (e.g. c$)
@@ -489,6 +498,8 @@ Function Delete-File-With-Service-Restart
             $script:computersDown += "`n$currentComputer"
         }
     }
+    cls
+    Results
 }
 
 # Function to install MSI packagae remotely using Scheduled tasks (schtasks.exe)
@@ -497,6 +508,7 @@ Function Task-Install
 {
     $script:computerTaskInstallFalied = @()
     $script:computerTaskInstallPrevious = @()
+    $script:computerTaskCleanupFailed = @()
     $script:inputfile = Get-FileName "C:\"
     if ($inputfile -ne "")
     {
@@ -504,7 +516,7 @@ Function Task-Install
     }
     else
     {
-        Write-Host "Cancled by user"
+        Write-Host "Cancled by user" -ForegroundColor Red
         return
     }
 
@@ -515,7 +527,7 @@ Function Task-Install
     }
     else
     {
-        Write-Host "Cancled by user"
+        Write-Host "Cancled by user" -ForegroundColor Red
         return
     }
     $script:LocalMSIPacageFile = Split-Path $inputfilemsi -leaf
@@ -529,7 +541,7 @@ Function Task-Install
             # Check if the file already exists first - if it doesnt attempt to copy the file
             if (test-path -path $destinationLocation)
             {
-                Write-Host "$LocalMSIPacageFile File appears to already be present on $currentComputer" -ForegroundColor Yellow
+                Write-Host "$LocalMSIPacageFile File appears to already be present on $currentComputer, What would you like to do:" -ForegroundColor Yellow
                 Write-Host "1. Remove the File, re-add it and continue with install."
                 Write-Host "2. Skip this computer & add it to the install Failure List"
                 $input = Read-Host "Please make a selection"
@@ -584,36 +596,58 @@ Function Task-Install
                         schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet" | Out-Null
                         if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
                         {
-                            Write-Host "$LocalMSIPacageFile task on $currentComputer added succesfully, attemtping to run this task"
+                            Write-Host "$LocalMSIPacageFile task on $currentComputer added succesfully, attemtping to run this task" -ForegroundColor Green
                             schtasks.exe /run /s "$currentComputer" /tn "$LocalMSIPacageFile" | Out-Null
-                            Write-Host "Run command sent to $currentComputer to execute $LocalMSIPacageFile Task, checking status"
+                            Write-Host "Run command sent to $currentComputer to execute $LocalMSIPacageFile Task, checking status" -ForegroundColor Yellow
                             while ($taskStatus -ne "0")
                             {
                                 start-sleep -seconds 10
                                 $taskStatus = ((schtasks /query /S "pc" /v /TN "splunkforwarder-6.4.11-0691276baf18-x64-release.msi")[4] -split ' +')[7]
                                 if ($taskStatus -eq "267009")
                                 {
-                                    Write-Host "$LocalMSIPacageFile on $currentComputer is running, waiting for completion"
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer is running, waiting for completion" -ForegroundColor Yellow
                                 }
                                 elseif ($taskStatus -eq "267011")
                                 {
-                                    Write-Host "$LocalMSIPacageFile on $currentComputer Error in starting the task, attempting to correct"
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer Error in starting the task, attempting to correct" -ForegroundColor Yellow
                                     schtasks.exe /run /s "$currentComputer" /tn "$LocalMSIPacageFile" | Out-Null
                                 }
                                 elseif ($taskStatus -eq "1603")
                                 {
-                                    Write-Host "$LocalMSIPacageFile on $currentComputer appears to have already been installed in the past, skipping"
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer appears to have already been installed in the past, skipping installation, begining cleanup" -ForegroundColor Yellow
                                     $script:computerTaskInstallPrevious += "`n$currentComputer"
-                                    pause
+                                    Remove-Item $destinationLocation -force -recurse | Out-Null
+                                    if (!(test-path -path $destinationLocation))
+                                    {
+                                        Write-Host "Succesfully removed $inputfilemsi, continuing with script" -ForegroundColor Green
+                                    }
+                                    else
+                                    {
+                                        Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                        $script:computerTaskCleanupFailed += "`n$currentComputer"
+                                    }
                                     break
                                 }
                                 elseif ($taskStatus -eq "0")
                                 {
-                                    Write-Host "$LocalMSIPacageFile on $currentComputer appears to have run succesfully"
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer appears to have run succesfully" -ForegroundColor Green
                                     pause
+                                    Write-Host "Cleaning up package from $destinationLocation"
+                                    Remove-Item $destinationLocation -force -recurse | Out-Null
+                                    if (!(test-path -path $destinationLocation))
+                                    {
+                                        Write-Host "Succesfully removed $inputfilemsi, continuing with script" -ForegroundColor Green
+                                    }
+                                    else
+                                    {
+                                        Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                        $script:computerTaskCleanupFailed += "`n$currentComputer"
+                                    }
+
                                     break
                                 }
                             }
+
                         }
                         else 
                         {
@@ -631,7 +665,7 @@ Function Task-Install
             }
             else 
             {
-                Write-Host "something went wrong with $currentComputer, Skipping"
+                Write-Host "something went wrong with $currentComputer, Skipping"  -ForegroundColor Red
                 $script:computerTaskInstallFalied += "`n$currentComputer"
             }
         }
@@ -641,6 +675,8 @@ Function Task-Install
             $script:computersDown += "`n$currentComputer"
         }
     }
+    cls
+    Results
 }
 
 # Function to list Results - this just lists out from the arrays
@@ -648,44 +684,48 @@ Function Task-Install
 Function Results
 {
     cls
-    Write-Host "`n====== Results - Only displayed if items failed during the script ======`n"
+    Write-Host "`n================================ Results ===============================`n"
     Write-Host "====== Note: These are cleared each time another option is selected ======"
     Write-Host "==========================================================================`n"
-    if (!($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack) -AND !($computerTaskInstallFalied) -AND !($computerTaskInstallPrevious))
+    if (!($computerTaskCleanupFailed) -AND !($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack) -AND !($computerTaskInstallFalied) -AND !($computerTaskInstallPrevious))
     {
-        Write-Host "`n No Hosts Failed - Either nothing has been run or all is good `n`n======================================"
+        Write-Host "`n No Hosts Failed - Either nothing has been run or all is good `n`n======================================"  -ForegroundColor Green
     }
     if ($computersDown)
     {
-        Write-Host "List of Computers that did not respond to a Ping (appeared offline - suggest trying these seperate/manually):`n$computersDown`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers that did not respond to a Ping (appeared offline - suggest trying these seperate/manually):`n$computersDown`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerServiceNotPresent)
     {
-        Write-Host "List of Computers that did not appear to have the service installed:`n$computerServiceNotPresent`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers that did not appear to have the service installed:`n$computerServiceNotPresent`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerServiceCantStop)
     {
-        Write-Host "List of Computers where the $serviceName service could not be stopped:`n$computerServiceCantStop`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers where the $serviceName service could not be stopped:`n$computerServiceCantStop`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerFileDeletionFailed)
     {
-        Write-Host "List of Computers where the FishBucket could not be deleted but is present ($serviceName service will remain offline):`n$computerFileDeletionFailed`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers where the FishBucket could not be deleted but is present ($serviceName service will remain offline):`n$computerFileDeletionFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerServiceCantStart)
     {
-        Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket:`n$computerServiceCantStart`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers where the $serviceName service could not be started back up after succesfully deleting the FishBucket:`n$computerServiceCantStart`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerServiceCantStartBack)
     {
-        Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer:`n$computerServiceCantStartBack`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers that the Restart command was issued to but the service could not be started back up after a succesful Stop was issued to that computer:`n$computerServiceCantStartBack`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerTaskInstallFalied)
     {
-        Write-Host "List of Computers that the Installation of the MSI package failed:`n$computerTaskInstallFalied`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers that the Installation of the MSI package failed:`n$computerTaskInstallFalied`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     if ($computerTaskInstallPrevious)
     {
-        Write-Host "List of Computers that the Installation of the MSI package appears to have already been done previously:`n$computerTaskInstallFalied`n`n==================END-OF-LIST==================`n"
+        Write-Host "List of Computers that the Installation of the MSI package appears to have already been done previously:`n$computerTaskInstallPrevious`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
+    }
+    if ($computerTaskCleanupFailed)
+    {
+        Write-Host "List of Computers that the Installation Succeded but the msi package was unable to be deleted after it ran:`n$computerTaskCleanupFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
 }
 
@@ -714,7 +754,7 @@ Write-Host "3. Stop Service on remote windows machines within the same domain."
 Write-Host "4. Restart Service on remote windows machines within the same domain."
 Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
 Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
-Write-Host "7. --DEV PHASE Install MSI Package to remote machines. DEV PHASE--"
+Write-Host "7. --ALPHA PHASE Install MSI Package to remote machines. ALPHA PHASE (report bugs please)--"
 Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
 Write-Host "Q: Quit`n"
 }
