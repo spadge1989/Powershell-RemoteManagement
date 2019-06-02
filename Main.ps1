@@ -532,7 +532,7 @@ Function Task-Install
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process"
                     $script:taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
-                    if ($taskCheck 2>null)
+                    if (schtasks.exe /query /s "pc" /v /tn "sometaskname" 2>null)
                     {
                         Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Green
                         pause
