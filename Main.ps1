@@ -19,7 +19,7 @@ $inputfilemsi = ""
 $inputfile = ""
 $LocalMSIPacageFile = ""
 $destinationLocation = ""
-$taskCheck = ""
+$taskStatus = ""
 
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
@@ -29,6 +29,7 @@ $computerServiceCantStart = @()
 $computerFileDeletionFailed = @()
 $computerServiceCantStartBack = @()
 $computerTaskInstallFalied = @()
+$computerTaskInstallPrevious = @()
 
 ###### End of Default Variables ############
 
@@ -495,6 +496,7 @@ Function Delete-File-With-Service-Restart
 Function Task-Install
 {
     $script:computerTaskInstallFalied = @()
+    $script:computerTaskInstallPrevious = @()
     $script:inputfile = Get-FileName "C:\"
     if ($inputfile -ne "")
     {
@@ -520,6 +522,7 @@ Function Task-Install
     ForEach ($currentComputer in $computers)
     {
         $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\" + "$LocalMSIPacageFile"
+        $taskStatus = ((schtasks /query /S 'pc' /TN SplunkInstall)[4] -split ' +')[2]
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
@@ -535,12 +538,10 @@ Function Task-Install
                     if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
                     {
                         Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Yellow
-                        Write-Host "Attempting to remove this Task and re-add it to ensure it is correct" -ForegroundColor Yellow
-                        schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F
-                        start-sleep -seconds 10
-                        if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
-                        {
-                            
+                        Write-Host "Attempting to remove this Task" -ForegroundColor Yellow
+                        schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F | Out-Null
+                        if (!(schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null))
+                        {  
                         }
                         else 
                         {
@@ -550,9 +551,45 @@ Function Task-Install
                     }
                     if (!(schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null))
                     {
-                        Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer" -ForegroundColor Green
-                        pause
-                        schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet"
+                        Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer adding task" -ForegroundColor Green
+                        schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet" | Out-Null
+                        if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
+                        {
+                            Write-Host "$LocalMSIPacageFile task on $currentComputer added succesfully, attemtping to run this task"
+                            schtasks.exe /run /s "$currentComputer" /tn "$LocalMSIPacageFile" | Out-Null
+                            Write-Host "Run command sent to $currentComputer to execute $LocalMSIPacageFile Task, checking status"
+                            while ($taskStatus -ne "0")
+                            {
+                                start-sleep -seconds 10
+                                if ($taskStatus -eq "267009")
+                                {
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer is running, waiting for completion"
+                                }
+                                elseif ($taskStatus -eq "267011")
+                                {
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer Error in starting the task, attempting to correct"
+                                    schtasks.exe /run /s "$currentComputer" /tn "$LocalMSIPacageFile" | Out-Null
+                                }
+                                elseif ($taskStatus -eq "1603")
+                                {
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer appears to have already been installed in the past, skipping"
+                                    $script:computerTaskInstallPrevious += "`n$currentComputer"
+                                    pause
+                                    break
+                                }
+                                elseif ($taskStatus -eq "0")
+                                {
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer appears to have run succesfully"
+                                    pause
+                                    break
+                                }
+                            }
+                        }
+                        else 
+                        {
+                            Write-Host "$LocalMSIPacageFile task on $currentComputer added unsuccesfully for unknown reason, skipping ths computer" -ForegroundColor Red
+                            $script:computerTaskInstallFalied += "`n$currentComputer"
+                        }
                     }
                 }
                 else 
@@ -628,7 +665,7 @@ Function Results
     Write-Host "`n====== Results - Only displayed if items failed during the script ======`n"
     Write-Host "====== Note: These are cleared each time another option is selected ======"
     Write-Host "==========================================================================`n"
-    if (!($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack) -AND !($computerTaskInstallFalied))
+    if (!($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack) -AND !($computerTaskInstallFalied) -AND !($computerTaskInstallPrevious))
     {
         Write-Host "`n No Hosts Failed - Either nothing has been run or all is good `n`n======================================"
     }
@@ -659,6 +696,10 @@ Function Results
     if ($computerTaskInstallFalied)
     {
         Write-Host "List of Computers that the Installation of the MSI package failed:`n$computerTaskInstallFalied`n`n==================END-OF-LIST==================`n"
+    }
+    if ($computerTaskInstallPrevious)
+    {
+        Write-Host "List of Computers that the Installation of the MSI package appears to have already been done previously:`n$computerTaskInstallFalied`n`n==================END-OF-LIST==================`n"
     }
 }
 
