@@ -576,12 +576,14 @@ Function Task-Install
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process" -ForegroundColor Green
                     #$taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
-                    if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
+                    schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                    if ($?)
                     {
                         Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Yellow
                         Write-Host "Attempting to remove this Task" -ForegroundColor Yellow
                         schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F | Out-Null
-                        if (!(schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null))
+                        schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                        if (!($?))
                         {  
                         }
                         else 
@@ -590,11 +592,13 @@ Function Task-Install
                             $script:computerTaskInstallFalied += "`n$currentComputer"
                         }
                     }
-                    if (!(schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null))
+                    schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                    if (!($?))
                     {
                         Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer adding task" -ForegroundColor Green
                         schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet" | Out-Null
-                        if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
+                        schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                        if ($?)
                         {
                             Write-Host "$LocalMSIPacageFile task on $currentComputer added succesfully, attemtping to run this task" -ForegroundColor Green
                             schtasks.exe /run /s "$currentComputer" /tn "$LocalMSIPacageFile" | Out-Null
@@ -602,7 +606,7 @@ Function Task-Install
                             while ($taskStatus -ne "0")
                             {
                                 start-sleep -seconds 10
-                                $taskStatus = ((schtasks /query /S "pc" /v /TN "splunkforwarder-6.4.11-0691276baf18-x64-release.msi")[4] -split ' +')[7]
+                                $taskStatus = ((schtasks /query /S "$currentComputer" /v /TN "$LocalMSIPacageFile")[4] -split ' +')[7]
                                 if ($taskStatus -eq "267009")
                                 {
                                     Write-Host "$LocalMSIPacageFile on $currentComputer is running, waiting for completion" -ForegroundColor Yellow
@@ -626,6 +630,24 @@ Function Task-Install
                                         Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
                                         $script:computerTaskCleanupFailed += "`n$currentComputer"
                                     }
+                                    schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F | Out-Null
+                                    schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                                    if (!($?))
+                                    {
+                                        Write-Host "Succesfully removed $LocalMSIPacageFile Task, continuing with script" -ForegroundColor Green
+                                    }
+                                    else
+                                    {
+                                        Write-Host "Could not delete the $LocalMSIPacageFile Task for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                        if ($computerTaskCleanupFailed -match $currentComputer)
+                                        {
+                                            Write-Host "$currentComputer Already been added to the Cleanup Failed list, skipping this step" -ForegroundColor Yellow
+                                        }
+                                        else
+                                        {
+                                            $script:computerTaskCleanupFailed += "`n$currentComputer"
+                                        }
+                                    }
                                     break
                                 }
                                 elseif ($taskStatus -eq "0")
@@ -643,7 +665,24 @@ Function Task-Install
                                         Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
                                         $script:computerTaskCleanupFailed += "`n$currentComputer"
                                     }
-
+                                    schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F | Out-Null
+                                    schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                                    if (!($?))
+                                    {
+                                        Write-Host "Succesfully removed $LocalMSIPacageFile Task, continuing with script" -ForegroundColor Green
+                                    }
+                                    else
+                                    {
+                                        Write-Host "Could not delete the $LocalMSIPacageFile Task for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                        if ($computerTaskCleanupFailed -match $currentComputer)
+                                        {
+                                            Write-Host "$currentComputer Already been added to the Cleanup Failed list, skipping this step" -ForegroundColor Yellow
+                                        }
+                                        else
+                                        {
+                                            $script:computerTaskCleanupFailed += "`n$currentComputer"
+                                        }
+                                    }
                                     break
                                 }
                             }
@@ -725,7 +764,7 @@ Function Results
     }
     if ($computerTaskCleanupFailed)
     {
-        Write-Host "List of Computers that the Installation Succeded but the msi package was unable to be deleted after it ran:`n$computerTaskCleanupFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
+        Write-Host "List of Computers that the Installation Succeded but the MSI package / Task was unable to be deleted after it ran (I Suggest checking this):`n$computerTaskCleanupFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
 }
 
@@ -843,7 +882,7 @@ do
            '5'
            { 
                 cls 
-                'You chose option #5' 
+                Delete-File
            }
            '6'
            { 
