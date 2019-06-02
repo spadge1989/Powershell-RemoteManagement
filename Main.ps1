@@ -522,12 +522,41 @@ Function Task-Install
     ForEach ($currentComputer in $computers)
     {
         $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\" + "$LocalMSIPacageFile"
-        $taskStatus = ((schtasks /query /S 'pc' /TN SplunkInstall)[4] -split ' +')[2]
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
             Write-Host "Attempting to copy the MSI package from $inputfilemsi to $destinationLocation" -ForegroundColor Yellow
             # Check if the file already exists first - if it doesnt attempt to copy the file
+            if (test-path -path $destinationLocation)
+            {
+                Write-Host "$LocalMSIPacageFile File appears to already be present on $currentComputer" -ForegroundColor Yellow
+                Write-Host "1. Remove the File, re-add it and continue with install."
+                Write-Host "2. Skip this computer & add it to the install Failure List"
+                $input = Read-Host "Please make a selection"
+                switch ($input)
+                {
+                    '1'
+                    {
+                        Remove-Item $destinationLocation -force -recurse | Out-Null
+                        
+                        if (!(test-path -path $destinationLocation))
+                        {
+                            Write-Host "Succesfully removed $inputfilemsi, continuing with script" -ForegroundColor Green
+                        }
+                        else
+                        {
+                            Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
+                            $script:computerTaskInstallFalied += "`n$currentComputer"
+                        }
+                    }
+                    '2'
+                    {
+                        Write-Host "$currentComputer Skipped"
+                        $script:computerTaskInstallFalied += "`n$currentComputer"
+                        Return
+                    }                    
+                }                 
+            }
             if (!(test-path -path $destinationLocation))
             {
                 copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null 
@@ -561,6 +590,7 @@ Function Task-Install
                             while ($taskStatus -ne "0")
                             {
                                 start-sleep -seconds 10
+                                $taskStatus = ((schtasks /query /S "pc" /v /TN "splunkforwarder-6.4.11-0691276baf18-x64-release.msi")[4] -split ' +')[7]
                                 if ($taskStatus -eq "267009")
                                 {
                                     Write-Host "$LocalMSIPacageFile on $currentComputer is running, waiting for completion"
@@ -598,50 +628,6 @@ Function Task-Install
                     $script:computerTaskInstallFalied += "`n$currentComputer"
                 }
 
-            }
-            elseif (test-path -path $destinationLocation)
-            {
-                Write-Host "$LocalMSIPacageFile File appears to already be present on $currentComputer" -ForegroundColor Yellow
-                Write-Host "1. Remove the File, re-add it and continue with install."
-                Write-Host "2. Use the existing file to install the MSI & remove it upon completion."
-                Write-Host "3. Use the exisitng file to install the MSI & leave it in place."
-                Write-Host "4. Tuck tail between legs and skip this computer!"
-                $input = Read-Host "Please make a selection"
-                switch ($input)
-                {
-                    '1'
-                    {
-                        Remove-Item $destinationLocation -force -recurse
-                        
-                        if (!(test-path -path $destinationLocation))
-                        {
-                            copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null
-                            if (test-path -path $destinationLocation)
-                            {
-                                Write-Host "Succesfully Deleted & re-added $LocalMSIPacageFile on $currentComputer, Initiating the Install process"
-
-                            }
-                        }
-                        else
-                        {
-                            Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
-                            $script:computerTaskInstallFalied += "`n$currentComputer"
-                        }
-                    }
-                    '2'
-                    {
-                        
-                    }
-                    '3'
-                    {
-                        
-                    }
-                    '4'
-                    {
-                        Write-Host "$currentComputer Skipped"
-                        $script:computerTaskInstallFalied += "`n$currentComputer"
-                    }
-                }                 
             }
             else 
             {
