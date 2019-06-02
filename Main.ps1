@@ -133,7 +133,8 @@ Function Service-Start
             $script:computersDown += "`n$currentComputer"
         }
     }
-    cls
+    Write-Host "Script has completed, Press Enter to display the results"
+    pause
     Results
 }
 
@@ -207,7 +208,8 @@ Function Service-Stop
             $script:computersDown += "`n$currentComputer"
         }
     }
-    cls
+    Write-Host "Script has completed, Press Enter to display the results"
+    pause
     Results
 }
 
@@ -303,7 +305,8 @@ Function Service-Restart
             $script:computersDown += "`n$currentComputer"
         }
     }
-    cls
+    Write-Host "Script has completed, Press Enter to display the results"
+    pause
     Results
 }
 
@@ -360,7 +363,8 @@ Function Delete-File
             $script:computersDown += "`n$currentComputer"
         }
     }
-    cls
+    Write-Host "Script has completed, Press Enter to display the results"
+    pause
     Results
 }
 
@@ -498,7 +502,8 @@ Function Delete-File-With-Service-Restart
             $script:computersDown += "`n$currentComputer"
         }
     }
-    cls
+    Write-Host "Script has completed, Press Enter to display the results"
+    pause
     Results
 }
 
@@ -653,7 +658,6 @@ Function Task-Install
                                 elseif ($taskStatus -eq "0")
                                 {
                                     Write-Host "$LocalMSIPacageFile on $currentComputer appears to have run succesfully" -ForegroundColor Green
-                                    pause
                                     Write-Host "Cleaning up package from $destinationLocation"
                                     Remove-Item $destinationLocation -force -recurse | Out-Null
                                     if (!(test-path -path $destinationLocation))
@@ -714,7 +718,8 @@ Function Task-Install
             $script:computersDown += "`n$currentComputer"
         }
     }
-    cls
+    Write-Host "Script has completed, Press Enter to display the results"
+    pause
     Results
 }
 
