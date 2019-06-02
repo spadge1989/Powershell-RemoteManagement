@@ -530,16 +530,17 @@ Function Task-Install
                 copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null 
                 if (test-path -path $destinationLocation)
                 {
-                    Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process"
+                    Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process" -ForegroundColor Green
                     #$taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
                     if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
                     {
                         Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Yellow
                         Write-Host "Attempting to remove this Task and re-add it to ensure it is correct" -ForegroundColor Yellow
                         schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F
+                        start-sleep -seconds 10
                         if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
                         {
-                            Write-Host "$LocalMSIPacageFile Task on $currentComputer was succesfully deleted, continuing"
+                            
                         }
                         else 
                         {
@@ -547,9 +548,9 @@ Function Task-Install
                             $script:computerTaskInstallFalied += "`n$currentComputer"
                         }
                     }
-                    else
+                    if (!(schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null))
                     {
-                        Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer"
+                        Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer" -ForegroundColor Green
                         pause
                         schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet"
                     }
