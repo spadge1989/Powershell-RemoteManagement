@@ -738,13 +738,13 @@ Function User-Menu
         [string]$Title = 'Menu'
     )
     cls
-Write-Host "`n################################################"
-Write-Host "################################################"
-Write-Host "#### Script made by Spadge1989 - aka. Padge ####"
-Write-Host "##### This project can be found on GitHub ######"
-Write-Host "############ github.com/spadge1989 #############"
-Write-Host "################################################"
-Write-Host "################################################`n"
+Write-Host "`n################################################"-ForegroundColor Green
+Write-Host "################################################"-ForegroundColor Green
+Write-Host "#### Script made by Spadge1989 - aka. Padge ####"-ForegroundColor Green
+Write-Host "##### This project can be found on GitHub ######"-ForegroundColor Green
+Write-Host "############ github.com/spadge1989 #############"-ForegroundColor Green
+Write-Host "################################################"-ForegroundColor Green
+Write-Host "################################################`n"-ForegroundColor Green
 Write-Host "================ $Title ================`n"
 Write-Host "Note: When you select an option that requires a list of computers`nyou will be prompted to select the CSV file (MUST be a .csv file)`n"
 Write-Host "This script can be used to do the following depending on the options you select:`n"
