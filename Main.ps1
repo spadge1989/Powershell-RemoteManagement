@@ -1,4 +1,4 @@
-﻿##### Script made by Spadge1989 aka. Padge ######
+##### Script made by Spadge1989 aka. Padge ######
 #################################################
 ##### You do not need to change any of the variables below unless you need to change their default values
 ##### The menu will allow you to change variables from within the script.
@@ -531,15 +531,25 @@ Function Task-Install
                 if (test-path -path $destinationLocation)
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process"
-                    $script:taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
-                    if (schtasks.exe /query /s "pc" /v /tn "sometaskname" 2>null)
+                    #$taskCheck = schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile"
+                    if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
                     {
-                        Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Green
-                        pause
+                        Write-Host "$LocalMSIPacageFile Task already appears to be installed on $currentComputer" -ForegroundColor Yellow
+                        Write-Host "Attempting to remove this Task and re-add it to ensure it is correct" -ForegroundColor Yellow
+                        schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F
+                        if (schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" 2>null)
+                        {
+                            Write-Host "$LocalMSIPacageFile Task on $currentComputer was succesfully deleted, continuing"
+                        }
+                        else 
+                        {
+                            Write-Host "Unable to delete the task, skipping $currentComputer" -ForegroundColor Red
+                            $script:computerTaskInstallFalied += "`n$currentComputer"
+                        }
                     }
                     else
                     {
-                        Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer" 
+                        Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer"
                         pause
                         schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet"
                     }
@@ -554,46 +564,46 @@ Function Task-Install
             elseif (test-path -path $destinationLocation)
             {
                 Write-Host "$LocalMSIPacageFile File appears to already be present on $currentComputer" -ForegroundColor Yellow
-                    Write-Host "1. Remove the File, re-add it and continue with install."
-                    Write-Host "2. Use the existing file to install the MSI & remove it upon completion."
-                    Write-Host "3. Use the exisitng file to install the MSI & leave it in place."
-                    Write-Host "4. Tuck tail between legs and skip this computer!"
-                    $input = Read-Host "Please make a selection"
-                    switch ($input)
+                Write-Host "1. Remove the File, re-add it and continue with install."
+                Write-Host "2. Use the existing file to install the MSI & remove it upon completion."
+                Write-Host "3. Use the exisitng file to install the MSI & leave it in place."
+                Write-Host "4. Tuck tail between legs and skip this computer!"
+                $input = Read-Host "Please make a selection"
+                switch ($input)
+                {
+                    '1'
                     {
-                        '1'
+                        Remove-Item $destinationLocation -force -recurse
+                        
+                        if (!(test-path -path $destinationLocation))
                         {
-                            Remove-Item $destinationLocation -force -recurse
-                            
-                            if (!(test-path -path $destinationLocation))
+                            copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null
+                            if (test-path -path $destinationLocation)
                             {
-                                copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null
-                                if (test-path -path $destinationLocation)
-                                {
-                                    Write-Host "Succesfully Deleted & re-added $LocalMSIPacageFile on $currentComputer, Initiating the Install process"
+                                Write-Host "Succesfully Deleted & re-added $LocalMSIPacageFile on $currentComputer, Initiating the Install process"
 
-                                }
-                            }
-                            else
-                            {
-                                Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
-                                $script:computerTaskInstallFalied += "`n$currentComputer"
                             }
                         }
-                        '2'
+                        else
                         {
-                            
-                        }
-                        '3'
-                        {
-                            
-                        }
-                        '4'
-                        {
-                            Write-Host "$currentComputer Skipped"
+                            Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
                             $script:computerTaskInstallFalied += "`n$currentComputer"
                         }
-                    }                 
+                    }
+                    '2'
+                    {
+                        
+                    }
+                    '3'
+                    {
+                        
+                    }
+                    '4'
+                    {
+                        Write-Host "$currentComputer Skipped"
+                        $script:computerTaskInstallFalied += "`n$currentComputer"
+                    }
+                }                 
             }
             else 
             {
