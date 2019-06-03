@@ -21,6 +21,10 @@ $LocalMSIPacageFile = ""
 $destinationLocation = ""
 $taskStatus = ""
 $msiSwitch = ""
+$localCopyFileLocation = ""
+$remoteCopyFileLocation = ""
+$remoteCopyFileLocationWorking = ""
+$automationRemoval = ""
 
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
@@ -32,6 +36,7 @@ $computerServiceCantStartBack = @()
 $computerTaskInstallFalied = @()
 $computerTaskInstallPrevious = @()
 $computerTaskCleanupFailed = @()
+$computerCopyFailed = @()
 
 ###### End of Default Variables ############
 
@@ -55,7 +60,7 @@ Function Get-FileName($initialDirectory)
 
 Function Get-FileNameMSIPackage($initialDirectory)
 {
-    Write-Host "`nSelect the MSI you wish to install on the endpoints on the local Machine`n"
+    Write-Host "`nSelect the MSI you wish to install on the endpoints from the local Machine`n"
     [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
     $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog  
     $OpenFileDialog.Title = "Select MSI Package"   
@@ -63,6 +68,47 @@ Function Get-FileNameMSIPackage($initialDirectory)
     $OpenFileDialog.filter = "MSI (*.msi)| *.msi"
     $OpenFileDialog.ShowDialog() | Out-Null
     $OpenFileDialog.filename
+}
+
+# Same as function above but used for the Local files selection with the copy-file-checks Function
+
+Function Get-FileNameLocalFile($initialDirectory)
+{
+    Write-Host "`nSelect the file you wish to transfer to the endpoints from the local Machine`n"
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
+    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog  
+    $OpenFileDialog.Title = "Select Local File to be copied"   
+    $OpenFileDialog.initialDirectory = $initialDirectory
+    $OpenFileDialog.filter = "* (*.*)| *.*"
+    $OpenFileDialog.ShowDialog() | Out-Null
+    $OpenFileDialog.filename
+}
+
+# Function to copy files and show a progress bar, could have used Copy-Item however this has no progress bar and sucks
+
+function Copy-File {
+    param( [string]$from, [string]$to)
+    $ffile = [io.file]::OpenRead($from)
+    $tofile = [io.file]::OpenWrite($to)
+    Write-Progress -Activity "Copying file" -status "$from -> $to" -PercentComplete 0
+    try {
+        [byte[]]$buff = new-object byte[] 4096
+        [long]$total = [int]$count = 0
+        do {
+            $count = $ffile.Read($buff, 0, $buff.Length)
+            $tofile.Write($buff, 0, $count)
+            $total += $count
+            if ($total % 1mb -eq 0) {
+                Write-Progress -Activity "Copying file" -status "$from -> $to" `
+                   -PercentComplete ([int]($total/$ffile.Length* 100))
+            }
+        } while ($count -gt 0)
+    }
+    finally {
+        $ffile.Dispose()
+        $tofile.Dispose()
+        Write-Progress -Activity "Copying file" -Status "Ready" -Completed
+    }
 }
 
 # Function use to start up remote service
@@ -506,7 +552,7 @@ Function Task-Install
             }
             if (!(test-path -path $destinationLocation))
             {
-                copy-item -Path "$inputfilemsi" -Destination "$destinationLocation"| Out-Null 
+                Copy-File $inputfilemsi $destinationLocation 
                 if (test-path -path $destinationLocation)
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process" -ForegroundColor Green
@@ -653,6 +699,111 @@ Function Task-Install
     Results
 }
 
+# Function for copy files from local machine to a remote machine with the Copy-File function - but with more checks
+
+Function Copy-File-Checks
+{
+    $script:computerCopyFailed = @()
+    ForEach ($currentComputer in $computers)
+    {
+        $script:remoteCopyFileLocationWorking = "\\$currentComputer" + "$remoteCopyFileLocation"
+        if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
+        {        
+            Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
+            if (test-path -path $remoteCopyFileLocationWorking)
+            {
+                Write-Host "File/Folder Detected on $currentComputer" -ForegroundColor Yellow
+                if (($automationRemoval -eq "0") -OR ($automationRemoval -eq "2"))
+                {
+                    if ($automationRemoval -eq "2")
+                    {
+                        $localRemoval = ""
+                        Write-Host "You Picked to be prompted if this were the case."
+                        Write-Host "1. Delete the file"
+                        Write-Host "2. Skip this computer."
+                        $input = Read-Host "Please make a selection"
+                        switch ($input)
+                        {
+                            '1'
+                            {                        
+                                $localRemoval = "0"
+                            }
+                            '2'
+                            {
+                                $localRemoval = "1"
+                            }                  
+                        }
+                    }
+                    if (($localRemoval -eq "0") -OR ($automationRemoval -eq "0"))
+                    {
+                        Write-Host "Attempting to Delete $remoteCopyFileLocationWorking" -ForegroundColor Yellow
+                        Remove-Item $remoteCopyFileLocationWorking -force -recurse | Out-Null
+                        Start-Sleep -seconds 10
+                        if (!(test-path -path $remoteCopyFileLocationWorking))
+                        {
+                            Write-Host "Deleted File succesfully" -ForegroundColor Green
+                        }
+                        while (test-path -path $remoteCopyFileLocationWorking)
+                        {
+                            Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
+                            Remove-Item $remoteCopyFileLocationWorking -force -recurse | Out-Null
+                            Start-Sleep -seconds 10
+                            if (!(test-path -path $remoteCopyFileLocationWorking))
+                            {
+                                Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
+                                break
+                            }
+                            $b+=1
+                            if($b -gt 3)
+                            {
+                                Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
+                                $script:computerCopyFailed += "`n$currentComputer"
+                                break
+                            }
+                        }
+                    }
+                    else 
+                    {
+                        Write-Host "Skip Chosen on $currentComputer" -ForegroundColor Yellow
+                        $script:computerCopyFailed += "`n$currentComputer"
+                    }
+                }
+                elseif ($automationRemoval = 1)
+                {
+                    Write-Host "Chosen to skip $currentComputer Automatically" -ForegroundColor Red
+                    $script:computerCopyFailed += "`n$currentComputer"
+                    break
+                }
+            }
+            if (!(test-path -path $remoteCopyFileLocationWorking))
+            {
+                Write-Host "Copying from $localCopyFileLocation to $remoteCopyFileLocationWorking, please wait." -ForegroundColor Yellow
+                Copy-File $localCopyFileLocation $remoteCopyFileLocationWorking 
+                if (test-path -path $remoteCopyFileLocationWorking)
+                {
+                    Write-Host "File Succesfully copied to $currentComputer." -ForegroundColor Green
+                }
+                else 
+                {
+                    Write-Host "Failed to Copy File to $currentComputer, skipping" -ForegroundColor Red
+                    $script:computerCopyFailed += "`n$currentComputer"
+                    break
+                }
+            }
+            
+        }
+        else
+        {
+            Write-Host "$currentComputer is Down / Not responding to Pings, Skipping" -ForegroundColor Red
+            $script:computersDown += "`n$currentComputer"
+        }
+    }
+    Write-Host "Script has completed, Press Enter to display the results`n"
+    pause
+    Results
+}
+
+
 # Function to list Results - this just lists out from the arrays
 
 Function Results
@@ -702,7 +853,6 @@ Function Results
         Write-Host "List of Computers that the Installation Succeded but the MSI package / Task was unable to be deleted after it ran (I Suggest checking this):`n$computerTaskCleanupFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     Write-Host "`n==========================================================================`n"
-    pause
 }
 
 
@@ -733,6 +883,7 @@ Function User-Menu
         Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
         Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
         Write-Host "7. Install MSI Package to remote machines."
+        Write-Host "8. Copy file/Folder from local machine to Remote Machines"
         Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
         Write-Host "Q: Quit`n"    
 }
@@ -808,7 +959,6 @@ Function Sub-Menu-Options1
                             $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
                             if ($inputfilemsi -ne "")
                             {
-                                $script:localMSIPackage = get-content $inputfilemsi
                             }
                             else
                             {
@@ -995,7 +1145,7 @@ do
             {
                 Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
                 Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
-                $script:fileInput = Read-Host -Prompt "Enter file location to be deleted Location"
+                $script:fileInput = Read-Host -Prompt "Enter file location to be deleted"
             }
             if (($serviceName) -AND ($fileInput) -AND ($inputfile))
             {
@@ -1028,7 +1178,6 @@ do
                 $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
                 if ($inputfilemsi -ne "")
                 {
-                    $script:localMSIPackage = get-content $inputfilemsi
                 }
                 else
                 {
@@ -1047,7 +1196,75 @@ do
             }
             else 
             {
-                Write-Host "You need to enter a list of endpoint to run this against & the select the MSI & MSI Switch you wish to install from the local machine."
+                Write-Host "You need to enter a list of endpoint to run this against & select the MSI & MSI Switch you wish to install from the local machine."
+                Write-Host "You will be returned to the main menu now"
+                pause
+            } 
+        }
+        '8'
+        { 
+            $script:localCopyFileLocation = ""
+            $script:remoteCopyFileLocation = ""
+            if (!($inputfile))
+            {
+                $script:inputfile = Get-FileName "C:\"
+                if ($inputfile -ne "")
+                {
+                $script:computers = get-content $inputfile
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($localCopyFileLocation))
+            {
+                $script:localCopyFileLocation = Get-FileNameLocalFile "C:\"
+                if ($localCopyFileLocation -ne "")
+                {
+                }
+                else
+                {
+                    Write-Host "Cancled by user" -ForegroundColor Red
+                }
+            }
+            if (!($remoteCopyFileLocation))
+            {
+                Write-Host "To enter new file / folder location for remote system you can use the example below"
+                Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFileName.Extension = \c`$\Program Files\SomeRandomProgram\RandomFileName.Extension`n"
+                $script:remoteCopyFileLocation = Read-Host -Prompt "Enter destination location for the file"
+            }
+            if (($localCopyFileLocation)-AND ($inputfile) -AND ($remoteCopyFileLocation))
+            {
+                $script:automationRemoval = ""
+                cls
+                Write-Host "While this function of the script runs it can automatically delete remote files if they already exist.`n"
+                Write-Host "You can pick one of the following options to automatically delete, skip or prompt if the file is detected"
+                Write-Host "1. Delete the file automatically (Dangerous if you dont know what you are doing)."
+                Write-Host "2. Skip this computer."
+                Write-Host "3. Prompt what you should do on this computer (if you are unsure do this option).`n"
+                $input = Read-Host "Please make a selection"
+                switch ($input)
+                {
+                    '1'
+                    {                        
+                        $script:automationRemoval = "0"
+                    }
+                    '2'
+                    {
+                        $script:automationRemoval = "1"
+                    }
+                    '3'
+                    {
+                        $script:automationRemoval = "2"
+                    }                    
+                }   
+            Copy-File-Checks
+            pause
+            }
+            else 
+            {
+                Write-Host "You need to enter a list of endpoint to run this against, a local file to copy & remote destination where to copy it."
                 Write-Host "You will be returned to the main menu now"
                 pause
             } 
