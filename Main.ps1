@@ -84,7 +84,22 @@ Function Get-FileNameLocalFile($initialDirectory)
     $OpenFileDialog.filename
 }
 
+Function Get-FolderNameLocalFolder($initialDirectory)
+{
+    Write-Host "`nSelect the file you wish to transfer to the endpoints from the local Machine`n"
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
+    $OpenFileDialog = New-Object System.Windows.Forms.FolderBrowserDialog  
+    # $OpenFileDialog.Title = "Select Local File to be copied"   
+    # $OpenFileDialog.initialDirectory = $initialDirectory
+    # $OpenFileDialog.filter = "* (*.*)| *.*"
+    $OpenFileDialog.ShowDialog() | Out-Null
+    # $OpenFileDialog.filename
+}
+
+
 # Function to copy files and show a progress bar, could have used Copy-Item however this has no progress bar and sucks
+
+
 
 function Copy-File {
     param( [string]$from, [string]$to)
@@ -110,6 +125,64 @@ function Copy-File {
         Write-Progress -Activity "Copying file" -Status "Ready" -Completed
     }
 }
+
+Function Copy-File-New(
+        [Parameter(Mandatory=$true)][String]$sourcePath, 
+        [Parameter(Mandatory=$true)][String]$destinationPath, 
+        [Parameter(Mandatory=$false)][bool]$createRootDirectory = $true)
+{
+    $item = Get-Item $sourcePath
+    $itemName = Split-Path $sourcePath -leaf
+    if (!$item.PSIsContainer){ #Item Is a file
+
+        $clientFileTime = Get-Item $sourcePath | select LastWriteTime -ExpandProperty LastWriteTime
+
+        if (!(Test-Path -Path $destinationPath\$itemName)){
+            Start-BitsTransfer -Source $sourcePath -Destination $destinationPath -Description "$sourcePath >> $destinationPath" -DisplayName "Copy Template file" -Confirm:$false
+            if (!$?){
+                return $false
+            }
+        }
+        else{
+            $serverFileTime = Get-Item $destinationPath\$itemName | select LastWriteTime -ExpandProperty LastWriteTime
+
+            if ($serverFileTime -lt $clientFileTime)
+            {
+                Start-BitsTransfer -Source $sourcePath -Destination $destinationPath -Description "$sourcePath >> $destinationPath" -DisplayName "Copy Template file" -Confirm:$false
+                if (!$?){
+                    return $false
+                }
+            }
+        }
+    }
+    else{ #Item Is a directory
+        if ($createRootDirectory){
+            $destinationPath = "$destinationPath\$itemName"
+            if (!(Test-Path -Path $destinationPath -PathType Container)){
+                if (Test-Path -Path $destinationPath -PathType Leaf){ #In case item is a file, delete it.
+                    Remove-Item -Path $destinationPath
+                }
+
+                New-Item -ItemType Directory $destinationPath | Out-Null
+                if (!$?){
+                    return $false
+                }
+
+            }
+        }
+        Foreach ($fileOrDirectory in (Get-Item -Path "$sourcePath\*"))
+        {
+            $status = Copy-FilesBitsTransfer $fileOrDirectory $destinationPath $true
+            if (!$status){
+                return $false
+            }
+        }
+    }
+
+    return $true
+}
+
+
 
 # Function use to start up remote service
 # This function first checks that the host is online and responding to pings.
