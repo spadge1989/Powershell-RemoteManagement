@@ -12,7 +12,7 @@ $serviceName = ""
 $fileInput = ""
 
 # Clearing of some Variables to make sure they are blank to start
-
+# If you know what you're doing you can change these (especially if you keep going in and out of the script) - it will not prompt you to enter these if you change the defaults
 $computers = ""
 $localMSIPackage = ""
 $inputfilemsi = ""
@@ -20,6 +20,7 @@ $inputfile = ""
 $LocalMSIPacageFile = ""
 $destinationLocation = ""
 $taskStatus = ""
+$msiSwitch = ""
 
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
@@ -295,12 +296,12 @@ Function Delete-File
             if (test-path -path $file)
             {
                 Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
-                Remove-Item $file -force -recurse
+                Remove-Item $file -force -recurse | Out-Null
                 Start-Sleep -seconds 10
                 while (test-path -path $file)
                 {
                     Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
-                    Remove-Item $file -force -recurse
+                    Remove-Item $file -force -recurse | Out-Null
                     Start-Sleep -seconds 10
                     if (!(test-path -path $file))
                     {
@@ -386,12 +387,12 @@ Function Delete-File-With-Service-Restart
                 if (test-path -path $file)
                 {
                     Write-Host "File/Folder Detected on $currentComputer, attempting to delete" -ForegroundColor Yellow
-                    Remove-Item $file -force -recurse
+                    Remove-Item $file -force -recurse | Out-Null
                     Start-Sleep -seconds 10
                     while (test-path -path $file)
                     {
                         Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
-                        Remove-Item $file -force -recurse
+                        Remove-Item $file -force -recurse | Out-Null
                         Start-Sleep -seconds 10
                         if (!(test-path -path $file))
                         {
@@ -530,7 +531,7 @@ Function Task-Install
                     if (!($?))
                     {
                         Write-Host "$LocalMSIPacageFile Task Not Present on $CurrentComputer adding task" -ForegroundColor Green
-                        schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile AGREETOLICENSE=Yes /quiet" | Out-Null
+                        schtasks.exe /create /RU "SYSTEM" /S "$currentComputer" /sc once /sd 01/01/1901 /st 23:59 /TN "$LocalMSIPacageFile" /TR "msiexec.exe /i C:\$LocalMSIPacageFile $msiSwitch" | Out-Null
                         schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
                         if ($?)
                         {
@@ -657,12 +658,12 @@ Function Task-Install
 Function Results
 {
     cls
-    Write-Host "`n================================ Results ===============================`n"
-    Write-Host "====== Note: These are cleared each time another option is selected ======"
-    Write-Host "==========================================================================`n"
+    Write-Host "`n================================ Results =================================`n"
+    Write-Host "====== Note: These are cleared each time another option is selected ======`n"
+    Write-Host "==========================================================================`n`n"
     if (!($computerTaskCleanupFailed) -AND !($computersDown) -AND !($computerServiceNotPresent) -AND !($computerServiceCantStop) -AND !($computerFileDeletionFailed) -AND !($computerServiceCantStart) -AND !($computerServiceCantStartBack) -AND !($computerTaskInstallFalied) -AND !($computerTaskInstallPrevious))
     {
-        Write-Host "`n No Hosts Failed - Either nothing has been run or all is good `n`n======================================"  -ForegroundColor Green
+        Write-Host "No Hosts Currently on any List - Either nothing has been run or all is good`n"  -ForegroundColor Green
     }
     if ($computersDown)
     {
@@ -700,6 +701,8 @@ Function Results
     {
         Write-Host "List of Computers that the Installation Succeded but the MSI package / Task was unable to be deleted after it ran (I Suggest checking this):`n$computerTaskCleanupFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
+    Write-Host "`n==========================================================================`n"
+    pause
 }
 
 
@@ -744,10 +747,11 @@ Function 1Sub-Menu
     )
     cls
 Write-Host "`n================ $Title ================`n"
-Write-Host "1. Change/Select Service. Currently: $serviceName"
-Write-Host "2. Change/Select File/Folder to be deleted on remote computers. Currently: $fileInput"
-Write-Host "3. Change/Select Computer List. Currently: $inputfile"
-Write-Host "4. Change File/Folder to be deleted on remote computers. Currently: $inputfilemsi"
+Write-Host "1. Change/Select Computer List. Currently: `"$inputfile`""
+Write-Host "2. Change/Select File/Folder to be deleted on remote computers. Currently: `"$fileInput`""
+Write-Host "1. Change/Select Service. Currently: `"$serviceName`""
+Write-Host "4. Change MSI Package to be installed on remote machines. Currently: `"$inputfilemsi`""
+Write-Host "5. Change MSI install Switch. Currently: `"$msiSwitch`""
 Write-Host "Q: Main Menu`n"
 }
 
@@ -760,29 +764,12 @@ Function Sub-Menu-Options1
                     $input = Read-Host "Please make a selection"
                     switch ($input)
                     {
-
                         '1'
                         {
                             cls
-                            Write-Host "`n====== Change/Select Service ======`n"
-                            Write-Host "Current Service Name set to: $serviceName"
-                            Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name`n"
-                            $script:serviceName = Read-Host -Prompt "Please enter new service name"
-                        }
-                        '2'
-                        {
-                            cls
-                            Write-Host "`n====== Change/Select File/Folder ======`n"
-                            Write-Host "Current Location set to: $fileInput"
-                            Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
-                            Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
-                            $script:fileInput = Read-Host -Prompt "Enter New Location"
-                        }
-                        '3'
-                        {
-                            cls
-                            Write-Host "`n====== Change/Select Computer List ======`n"
-                            Write-Host "Current Location set to: $inputfile"
+                            Write-Host "`n====================== Change/Select Computer List ======================"
+                            Write-Host "`n====== You will be prompted to select a file on your local machine ======`n"
+                            Write-Host "Current Location set to: `"$inputfile`"`n"
                             pause
                             $script:inputfile = Get-FileName "C:\"
                             if ($inputfile -ne "")
@@ -794,11 +781,29 @@ Function Sub-Menu-Options1
                                 Write-Host "Cancled by user" -ForegroundColor Red
                             }
                         }
+                        '2'
+                        {
+                            cls
+                            Write-Host "`n====== Change/Select File/Folder ======`n"
+                            Write-Host "To enter new file / folder location for remote system you have to remove the leading computer name"
+                            Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolderOrFile = \c`$\Program Files\SomeRandomProgram\RandomFolderOrFile`n"
+                            Write-Host "Current Location set to: `"$fileInput`"`n"
+                            $script:fileInput = Read-Host -Prompt "Enter New Location"
+                        }
+                        '3'
+                        {
+                            cls
+                            Write-Host "`n====== Change/Select Service ======`n"
+                            Write-Host "This must be the actualy ServiceName as displayed in the Name filed in Services.msc not the display name`n"
+                            Write-Host "Current Service Name set to: `"$serviceName`"`n"
+                            $script:serviceName = Read-Host -Prompt "Please enter new service name"
+                        }
                         '4'
                         {
                             cls
-                            Write-Host "`n====== Change File/Folder to be deleted on remote computers ======`n"
-                            Write-Host "Current Location set to: $inputfilemsi"
+                            Write-Host "`n========= Change MSI Package to be installed on remote machines ========="
+                            Write-Host "`n====== You will be prompted to select a file on your local machine ======`n"
+                            Write-Host "Current Location set to: `"$inputfilemsi`"`n"
                             pause
                             $script:inputfilemsi = Get-FileNameMSIPackage "C:\"
                             if ($inputfilemsi -ne "")
@@ -809,6 +814,15 @@ Function Sub-Menu-Options1
                             {
                                 Write-Host "Cancled by user" -ForegroundColor Red
                             }
+                        }
+                        '5'
+                        {
+                            cls
+                            Write-Host "`n====== Change Switch parameters after the MSI package, Make sure to include exactly ======"
+                            Write-Host "====== how you want it to appear after the packagae including any special characters ======`n"
+                            Write-Host "====== e.g. "msiexec.exe /i Package.msi AGREETOLICENSE=Yes /quiet" = "AGREETOLICENSE=Yes /quiet" Excluding the `" & no leading space ======`n"
+                            Write-Host "Currently set to: `"$msiSwitch`"`n"
+                            $script:msiSwitch = Read-Host -Prompt "Enter New MSI Switch"
                         }
                         'q'
                         {
@@ -1021,14 +1035,19 @@ do
                     Write-Host "Cancled by user" -ForegroundColor Red
                 }
             }
-            if (($inputfilemsi)-AND ($inputfile))
+            if(!($msiSwitch))
+            {
+                Write-Host "You need to put an MSI switch in - Check documentation if you are unsure (i recoomend at least "/quiet" Excluding the `""
+                $script:msiSwitch = Read-Host -Prompt "Enter New MSI Switch"
+            }
+            if (($inputfilemsi)-AND ($inputfile) -AND ($msiSwitch))
             {
             cls 
             Task-Install
             }
             else 
             {
-                Write-Host "You need to enter a list of endpoint to run this against & the select the MSI you wish to install from the local machine."
+                Write-Host "You need to enter a list of endpoint to run this against & the select the MSI & MSI Switch you wish to install from the local machine."
                 Write-Host "You will be returned to the main menu now"
                 pause
             } 
@@ -1036,7 +1055,7 @@ do
         '9'
         { 
             cls
-            Results 
+            Results
         }
         'q' 
         { 
