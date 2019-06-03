@@ -712,12 +712,14 @@ Function User-Menu
         )
         cls
         Write-Host "`n################################################"-ForegroundColor Green
-        Write-Host "################################################"-ForegroundColor Green
-        Write-Host "#### Script made by Spadge1989 - aka. Padge ####"-ForegroundColor Green
-        Write-Host "##### This project can be found on GitHub ######"-ForegroundColor Green
-        Write-Host "############ github.com/spadge1989 #############"-ForegroundColor Green
-        Write-Host "################################################"-ForegroundColor Green
-        Write-Host "################################################`n"-ForegroundColor Green
+        Write-Host "##################################################"-ForegroundColor Green
+        Write-Host "##### Script made by Spadge1989 - aka. Padge #####"-ForegroundColor Green
+        Write-Host "###### This project can be found on GitHub #######"-ForegroundColor Green
+        Write-Host "############# github.com/spadge1989 ##############"-ForegroundColor Green
+        Write-Host "##################################################"-ForegroundColor Green
+        Write-Host "#############This Project is still in ############"-ForegroundColor Green
+        Write-Host "########### ALPHA stage of development ###########"-ForegroundColor Green
+        Write-Host "##################################################`n"-ForegroundColor Green
         Write-Host "================ $Title ================`n"
         Write-Host "Note: When you select an option that requires a list of computers`nyou will be prompted to select the CSV file (MUST be a .csv file)`n"
         Write-Host "This script can be used to do the following depending on the options you select:`n"
@@ -727,7 +729,7 @@ Function User-Menu
         Write-Host "4. Restart Service on remote windows machines within the same domain."
         Write-Host "5. Delete File/Folder on remote windows machines within the same domain."
         Write-Host "6. Stop Service, Delete File/Folder & Start Service back up."
-        Write-Host "7. --ALPHA PHASE Install MSI Package to remote machines. ALPHA PHASE (report bugs please)--"
+        Write-Host "7. Install MSI Package to remote machines."
         Write-Host "9. Print Results - Will only print failures - Results reset after every single option is ran other than option 1."
         Write-Host "Q: Quit`n"    
 }
