@@ -865,7 +865,7 @@ Function User-Menu
         [string]$Title = 'Menu'
         )
         cls
-        Write-Host "`n################################################"-ForegroundColor Green
+        Write-Host "`n##################################################"-ForegroundColor Green
         Write-Host "##################################################"-ForegroundColor Green
         Write-Host "##### Script made by Spadge1989 - aka. Padge #####"-ForegroundColor Green
         Write-Host "###### This project can be found on GitHub #######"-ForegroundColor Green
