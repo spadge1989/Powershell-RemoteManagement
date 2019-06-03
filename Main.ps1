@@ -530,8 +530,8 @@ Function Task-Install
                 {
                     '1'
                     {
+                        Write-Host "Attempting to Delete File" -ForegroundColor Yellow
                         Remove-Item $destinationLocation -force -recurse | Out-Null
-                        
                         if (!(test-path -path $destinationLocation))
                         {
                             Write-Host "Succesfully removed $inputfilemsi, continuing with script" -ForegroundColor Green
@@ -552,6 +552,7 @@ Function Task-Install
             }
             if (!(test-path -path $destinationLocation))
             {
+                Write-Host "Copying from $inputfilemsi to $destinationLocation, please wait" -ForegroundColor Yellow
                 Copy-File $inputfilemsi $destinationLocation 
                 if (test-path -path $destinationLocation)
                 {
