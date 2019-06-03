@@ -3,16 +3,16 @@
 ##### You do not need to change any of the variables below unless you need to change their default values
 ##### The menu will allow you to change variables from within the script.
 
+# Version Variable
+
+$Version = "0.1"
+
 ##### Default Variables ###########
-
-# Variable for Service
-$serviceName = ""
-
-# Default location of File/Folder to be deleted
-$fileInput = ""
 
 # Clearing of some Variables to make sure they are blank to start
 # If you know what you're doing you can change these (especially if you keep going in and out of the script) - it will not prompt you to enter these if you change the defaults
+$serviceName = ""
+$fileInput = ""
 $computers = ""
 $localMSIPackage = ""
 $inputfilemsi = ""
@@ -93,7 +93,7 @@ function Copy-File {
     Write-Progress -Activity "Copying file" -status "$from -> $to" -PercentComplete 0
     try {
         [byte[]]$buff = new-object byte[] 4096
-        [long]$total = [int]$count = 0
+        [long]$total = [long]$count = 0
         do {
             $count = $ffile.Read($buff, 0, $buff.Length)
             $tofile.Write($buff, 0, $count)
@@ -873,6 +873,8 @@ Function User-Menu
         Write-Host "##################################################"-ForegroundColor Green
         Write-Host "#############This Project is still in ############"-ForegroundColor Green
         Write-Host "########### ALPHA stage of development ###########"-ForegroundColor Green
+        Write-Host "##################################################"-ForegroundColor Green
+        Write-Host "################## Version $Version ###################"-ForegroundColor Green
         Write-Host "##################################################`n"-ForegroundColor Green
         Write-Host "================ $Title ================`n"
         Write-Host "Note: When you select an option that requires a list of computers`nyou will be prompted to select the CSV file (MUST be a .csv file)`n"
@@ -1231,8 +1233,10 @@ do
             }
             if (!($remoteCopyFileLocation))
             {
-                Write-Host "To enter new file / folder location for remote system you can use the example below"
-                Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFileName.Extension = \c`$\Program Files\SomeRandomProgram\RandomFileName.Extension`n"
+                cls
+                Write-Host "`nTo enter new file / folder location for remote system you can use the example below`n"
+                Write-Host "N.B. This feature can currently only do individual files, so please make sure to name destination appropriatly or you could end up with deleted folders!"
+                Write-Host "`ne.g. C:\Program Files\SomeRandomProgram\RandomFileName.Extension = \c`$\Program Files\SomeRandomProgram\RandomFileName.Extension`n"
                 $script:remoteCopyFileLocation = Read-Host -Prompt "Enter destination location for the file"
             }
             if (($localCopyFileLocation)-AND ($inputfile) -AND ($remoteCopyFileLocation))
