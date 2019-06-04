@@ -89,13 +89,43 @@ Function Get-FolderNameLocalFolder($initialDirectory)
     Write-Host "`nSelect the file you wish to transfer to the endpoints from the local Machine`n"
     [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
     $OpenFileDialog = New-Object System.Windows.Forms.FolderBrowserDialog  
-    # $OpenFileDialog.Title = "Select Local File to be copied"   
-    # $OpenFileDialog.initialDirectory = $initialDirectory
-    # $OpenFileDialog.filter = "* (*.*)| *.*"
     $OpenFileDialog.ShowDialog() | Out-Null
-    # $OpenFileDialog.filename
 }
 
+############################################################
+####Researching Robocopy to replace BITS / Stream transfer methods#####
+# robocopy "Options" "Source" "Destination" "File"
+# robocopy /S /E "C:\TestFolder\1" "C:\TestFolder\2" # This is probably the best one to use to copy folders (includes empty directories - does not delete anything that doesnt conflict)
+# robocopy /MIR "C:\TestFolder\1" "C:\TestFolder\2" # This will make the destination folder exactly the same as the source - i.e. delete files / folders that are not present in the destination)
+# robocopy "C:\TestFolder\1" "C:\TestFolder\2" "SomeFile.exe" # Copies only the file in question, no folders etc... Puts it into the folder specified.
+# robocopy "C:\TestFolder\1" "C:\TestFolder\2" "*.exe" # Copies only the file with the extension in question, no folders etc... Puts it into the folder specified.
+
+# /S Copy all directory structure / contents inside each of the folder
+# /E Copies empty directories too
+# /MIR Deletes files in destination that the source folder does not have
+
+# It will overwrite the destination File even if the source is older than the destination
+#  |select-string "   Bytes :"
+
+############################################################
+
+
+function Copy-Robocopy(
+        [Parameter(Mandatory=$true)][String]$sourcePath, 
+        [Parameter(Mandatory=$true)][String]$destinationPath)
+{
+
+robocopy /S /E /V "$sourcePath" "$destinationPath" | 
+%{
+    $data = $_.Split([char]9); if("$($data[4])" -ne "") 
+    {
+        $file = "$($data[4])"
+    }
+    $Percent = "$($data[0])"
+    Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue;
+} 
+
+}
 
 # Function to copy files and show a progress bar, could have used Copy-Item however this has no progress bar and sucks
 # can only copy individual files though, not folders/
