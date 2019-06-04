@@ -98,7 +98,7 @@ Function Get-FolderNameLocalFolder($initialDirectory)
 
 
 # Function to copy files and show a progress bar, could have used Copy-Item however this has no progress bar and sucks
-
+# can only copy individual files though, not folders/
 
 
 function Copy-File {
@@ -125,6 +125,10 @@ function Copy-File {
         Write-Progress -Activity "Copying file" -Status "Ready" -Completed
     }
 }
+
+
+# New test function to give progress bar & be able to copy folder, however this does not working with the [] symbols and breaks it, need to do more testing
+# uses BITS to achieve this
 
 Function Copy-File-New(
         [Parameter(Mandatory=$true)][String]$sourcePath, 
@@ -1294,14 +1298,44 @@ do
                 }
             }
             if (!($localCopyFileLocation))
-            {
-                $script:localCopyFileLocation = Get-FileNameLocalFile "C:\"
-                if ($localCopyFileLocation -ne "")
+            {cls
+                $FileFolder = ""
+                Write-Host "`nIs it a File or Folder you wish to transfer?"
+                Write-Host "1. File."
+                Write-Host "2. Folder.`n"
+                $input = Read-Host "Please make a selection"
+                switch ($input)
                 {
+                    '1'
+                    {                        
+                        $FileFolder = "0"
+                    }
+                    '2'
+                    {
+                        $FileFolder = "1"
+                    }                   
+                } 
+                if ($FileFolder -eq "0")
+                {
+                    $script:localCopyFileLocation = Get-FileNameLocalFolder "C:\"
+                    if ($localCopyFileLocation -ne "")
+                    {
+                    }
+                    else
+                    {
+                        Write-Host "Cancled by user" -ForegroundColor Red
+                    }
                 }
                 else
                 {
-                    Write-Host "Cancled by user" -ForegroundColor Red
+                    $script:localCopyFileLocation = Get-FileNameLocalFile "C:\"
+                    if ($localCopyFileLocation -ne "")
+                    {
+                    }
+                    else
+                    {
+                        Write-Host "Cancled by user" -ForegroundColor Red
+                    }
                 }
             }
             if (!($remoteCopyFileLocation))
