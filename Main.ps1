@@ -1271,6 +1271,7 @@ do
             }
             if (($inputfilemsi)-AND ($inputfile) -AND ($msiSwitch))
             {
+                pause
             cls 
             Task-Install
             }
@@ -1314,10 +1315,10 @@ do
                     {
                         $FileFolder = "1"
                     }                   
-                } 
-                if ($FileFolder -eq "0")
+                }
+                if ($FileFolder -eq "1")
                 {
-                    $script:localCopyFileLocation = Get-FileNameLocalFolder "C:\"
+                    $script:localCopyFileLocation = Get-FolderNameLocalFolder "C:\"
                     if ($localCopyFileLocation -ne "")
                     {
                     }
