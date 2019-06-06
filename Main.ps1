@@ -1315,6 +1315,7 @@ do
         '8'
         { 
             $script:localCopyFileLocation = ""
+            $script:localCopyFolderLocation = ""
             $script:remoteCopyFileLocation = ""
             if (!($inputfile))
             {
@@ -1329,7 +1330,7 @@ do
                 }
             }
             if (!($localCopyFileLocation))
-            {cls
+            {   cls
                 $FileFolder = ""
                 Write-Host "`nIs it a File or Folder you wish to transfer?"
                 Write-Host "1. File."
@@ -1348,8 +1349,8 @@ do
                 }
                 if ($FileFolder -eq "1")
                 {
-                    $script:localCopyFileLocation = Get-FolderNameLocalFolder "C:\"
-                    if ($localCopyFileLocation -ne "")
+                    $script:localCopyFolderLocation = Get-FolderNameLocalFolder "C:\"
+                    if ($localCopyFolderLocation -ne "")
                     {
                     }
                     else
@@ -1371,11 +1372,25 @@ do
             }
             if (!($remoteCopyFileLocation))
             {
-                cls
-                Write-Host "`nTo enter new file / folder location for remote system you can use the example below`n"
-                Write-Host "N.B. This feature can currently only do individual files, so please make sure to name destination appropriatly or you could end up with deleted folders!"
-                Write-Host "`ne.g. C:\Program Files\SomeRandomProgram\RandomFileName.Extension = \c`$\Program Files\SomeRandomProgram\RandomFileName.Extension`n"
-                $script:remoteCopyFileLocation = Read-Host -Prompt "Enter destination location for the file"
+                if ($FileFolder = "1") Folder
+                {
+                    cls
+                    Write-Host "`nEnter Location of where you would like the Folder to be transfered to`n"
+                    Write-Host "`nTo enter new folder location for remote system you can use the example below`n"
+                    Write-Host "N.B. When copying Folders if there are files named the same they will be overwritten by your chosen ones."
+                    Write-Host "e.g. Transfer Folder = C:\Program Files\SomeRandomProgram\RandomFolder = \c`$\Program Files\SomeRandomProgram`n"
+                    $script:remoteCopyFolderLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
+                }
+                elseif ($FileFolder = "0") File
+                {
+                    cls
+                    Write-Host "`nEnter Location of where you would like the File/Folder to be transfered to`n"
+                    Write-Host "`nTo enter new file location for remote system you can use the example below`n"
+                    Write-Host "N.B. When copying Files if there are files named the same they will be overwritten by your chosen ones."
+                    Write-Host "You only need the destination Folder of the file like in the below example"
+                    Write-Host "`ne.g. C:\Program Files\SomeRandomProgram\RandomFileName.Extension = \c`$\Program Files\SomeRandomProgram`n"
+                    $script:remoteCopyFileLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
+                }
             }
             if (($localCopyFileLocation)-AND ($inputfile) -AND ($remoteCopyFileLocation))
             {
