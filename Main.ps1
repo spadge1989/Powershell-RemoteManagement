@@ -25,6 +25,9 @@ $localCopyFileLocation = ""
 $remoteCopyFileLocation = ""
 $remoteCopyFileLocationWorking = ""
 $automationRemoval = ""
+$sourcePath = ""
+$destinationPath = ""
+$sourceFile = ""
 
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
@@ -112,10 +115,11 @@ Function Get-FolderNameLocalFolder($initialDirectory)
 
 function Copy-Robocopy(
         [Parameter(Mandatory=$true)][String]$sourcePath, 
-        [Parameter(Mandatory=$true)][String]$destinationPath)
+        [Parameter(Mandatory=$true)][String]$destinationPath,
+        [Parameter(Mandatory=$true)][String]$sourceFile)
 {
 
-robocopy /S /E /V "$sourcePath" "$destinationPath" | 
+robocopy /S /E /V "$sourcePath" "$destinationPath" "$sourceFile" | 
 %{
     $data = $_.Split([char]9); if("$($data[4])" -ne "") 
     {
@@ -808,6 +812,12 @@ Function Task-Install
 }
 
 # Function for copy files from local machine to a remote machine with the Copy-File function - but with more checks
+## inputs from user = 
+#                                   $script:localCopyFileLocation = "" 
+#                                   $script:localCopyFolderLocation = ""
+#                                   $script:remoteCopyFileLocation = ""
+
+## Outputs into Robocopy line:     robocopy /S /E /V "$sourcePath" "$destinationPath" "$sourceFile"
 
 Function Copy-File-Checks
 {
@@ -818,87 +828,14 @@ Function Copy-File-Checks
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
-            if (test-path -path $remoteCopyFileLocationWorking)
+            if ($localCopyFileLocation -ne "")
             {
-                Write-Host "File/Folder Detected on $currentComputer" -ForegroundColor Yellow
-                if (($automationRemoval -eq "0") -OR ($automationRemoval -eq "2"))
-                {
-                    if ($automationRemoval -eq "2")
-                    {
-                        $localRemoval = ""
-                        Write-Host "You Picked to be prompted if this were the case."
-                        Write-Host "1. Delete the file"
-                        Write-Host "2. Skip this computer."
-                        $input = Read-Host "Please make a selection"
-                        switch ($input)
-                        {
-                            '1'
-                            {                        
-                                $localRemoval = "0"
-                            }
-                            '2'
-                            {
-                                $localRemoval = "1"
-                            }                  
-                        }
-                    }
-                    if (($localRemoval -eq "0") -OR ($automationRemoval -eq "0"))
-                    {
-                        Write-Host "Attempting to Delete $remoteCopyFileLocationWorking" -ForegroundColor Yellow
-                        Remove-Item $remoteCopyFileLocationWorking -force -recurse | Out-Null
-                        Start-Sleep -seconds 10
-                        if (!(test-path -path $remoteCopyFileLocationWorking))
-                        {
-                            Write-Host "Deleted File succesfully" -ForegroundColor Green
-                        }
-                        while (test-path -path $remoteCopyFileLocationWorking)
-                        {
-                            Write-Host "File/Folder on $currentComputer failed to be deleted, attempting again" -ForegroundColor Yellow
-                            Remove-Item $remoteCopyFileLocationWorking -force -recurse | Out-Null
-                            Start-Sleep -seconds 10
-                            if (!(test-path -path $remoteCopyFileLocationWorking))
-                            {
-                                Write-Host "File/Folder on $currentComputer succesfully deleted / not present, continuing" -ForegroundColor Green
-                                break
-                            }
-                            $b+=1
-                            if($b -gt 3)
-                            {
-                                Write-Host "Failed to delete File/Folder on $currentComputer, skipping" -ForegroundColor Red
-                                $script:computerCopyFailed += "`n$currentComputer"
-                                break
-                            }
-                        }
-                    }
-                    else 
-                    {
-                        Write-Host "Skip Chosen on $currentComputer" -ForegroundColor Yellow
-                        $script:computerCopyFailed += "`n$currentComputer"
-                    }
-                }
-                elseif ($automationRemoval = 1)
-                {
-                    Write-Host "Chosen to skip $currentComputer Automatically" -ForegroundColor Red
-                    $script:computerCopyFailed += "`n$currentComputer"
-                    break
-                }
+
             }
-            if (!(test-path -path $remoteCopyFileLocationWorking))
+            elseif ($localCopyFolderLocation -ne "")
             {
-                Write-Host "Copying from $localCopyFileLocation to $remoteCopyFileLocationWorking, please wait." -ForegroundColor Yellow
-                Copy-File $localCopyFileLocation $remoteCopyFileLocationWorking 
-                if (test-path -path $remoteCopyFileLocationWorking)
-                {
-                    Write-Host "File Succesfully copied to $currentComputer." -ForegroundColor Green
-                }
-                else 
-                {
-                    Write-Host "Failed to Copy File to $currentComputer, skipping" -ForegroundColor Red
-                    $script:computerCopyFailed += "`n$currentComputer"
-                    break
-                }
+
             }
-            
         }
         else
         {
@@ -1314,9 +1251,9 @@ do
         }
         '8'
         { 
+            $script:localCopyFolderLocation =""
             $script:localCopyFileLocation = ""
-            $script:localCopyFolderLocation = ""
-            $script:remoteCopyFileLocation = ""
+            $script:remoteCopyLocation = ""
             if (!($inputfile))
             {
                 $script:inputfile = Get-FileName "C:\"
@@ -1370,59 +1307,36 @@ do
                     }
                 }
             }
-            if (!($remoteCopyFileLocation))
+            if (!($remoteCopyLocation))
             {
-                if ($FileFolder = "1") Folder
+                if ($FileFolder = "1")
                 {
                     cls
                     Write-Host "`nEnter Location of where you would like the Folder to be transfered to`n"
                     Write-Host "`nTo enter new folder location for remote system you can use the example below`n"
-                    Write-Host "N.B. When copying Folders if there are files named the same they will be overwritten by your chosen ones."
-                    Write-Host "e.g. Transfer Folder = C:\Program Files\SomeRandomProgram\RandomFolder = \c`$\Program Files\SomeRandomProgram`n"
-                    $script:remoteCopyFolderLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
+                    Write-Host "N.B. When copying Folders if there are files named the same they will be overwritten by your chosen ones.`n"
+                    Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolder = \c`$\Program Files\SomeRandomProgram`n"
+                    $script:remoteCopyLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
                 }
-                elseif ($FileFolder = "0") File
+                elseif ($FileFolder = "0")
                 {
                     cls
                     Write-Host "`nEnter Location of where you would like the File/Folder to be transfered to`n"
                     Write-Host "`nTo enter new file location for remote system you can use the example below`n"
                     Write-Host "N.B. When copying Files if there are files named the same they will be overwritten by your chosen ones."
-                    Write-Host "You only need the destination Folder of the file like in the below example"
+                    Write-Host "You only need the destination Folder of the file like in the below example`n"
                     Write-Host "`ne.g. C:\Program Files\SomeRandomProgram\RandomFileName.Extension = \c`$\Program Files\SomeRandomProgram`n"
-                    $script:remoteCopyFileLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
+                    $script:remoteCopyLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
                 }
             }
-            if (($localCopyFileLocation)-AND ($inputfile) -AND ($remoteCopyFileLocation))
+            if ((($localCopyFileLocation) -OR ($localCopyFolderLocation))-AND ($inputfile) -AND ($remoteCopyLocation))
             {
-                $script:automationRemoval = ""
-                cls
-                Write-Host "While this function of the script runs it can automatically delete remote files if they already exist.`n"
-                Write-Host "You can pick one of the following options to automatically delete, skip or prompt if the file is detected"
-                Write-Host "1. Delete the file automatically (Dangerous if you dont know what you are doing)."
-                Write-Host "2. Skip this computer."
-                Write-Host "3. Prompt what you should do on this computer (if you are unsure do this option).`n"
-                $input = Read-Host "Please make a selection"
-                switch ($input)
-                {
-                    '1'
-                    {                        
-                        $script:automationRemoval = "0"
-                    }
-                    '2'
-                    {
-                        $script:automationRemoval = "1"
-                    }
-                    '3'
-                    {
-                        $script:automationRemoval = "2"
-                    }                    
-                }   
             Copy-File-Checks
             pause
             }
             else 
             {
-                Write-Host "You need to enter a list of endpoint to run this against, a local file to copy & remote destination where to copy it."
+                Write-Host "You need to enter a list of endpoint to run this against, a local File/Folder to copy & remote destination where to copy it to."
                 Write-Host "You will be returned to the main menu now"
                 pause
             } 
