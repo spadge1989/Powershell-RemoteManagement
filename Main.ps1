@@ -5,7 +5,7 @@
 
 # Version Variable
 
-$Version = "0.1"
+$Version = "0.2"
 
 ##### Default Variables ###########
 
@@ -128,31 +128,110 @@ function Copy-Robocopy(
 { 
     if ($localCopyFolderLocation -ne "") 
     {
-        Write-Host "Executing: robocopy /E /V `""$sourcePath"`" `""$destinationPath"`"" -ForegroundColor Yellow
-        robocopy /E /V `""$sourcePath"`" `""$destinationPath"`" |
-        %{
-            $data = $_.Split([char]9); if("$($data[4])" -ne "") 
-            {
-            $file = "$($data[4])"
-            }
-            $Percent = "$($data[0])"
-            Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue;
-        } 
+        Write-Host "Executing: robocopy /E /V $sourcePath $destinationPath " -ForegroundColor Yellow
+        robocopy /E /V "$sourcePath" "$destinationPath"
     }
     else
     {
         $sourceFile = Split-Path $sourcePath -leaf
         $sourcePath = Split-Path $sourcePath
-        Write-Host "Executing: robocopy /E /V `""$sourcePath"`" `""$destinationPath"`" `""$sourceFile"`"" -ForegroundColor Yellow
-        robocopy /E /V `""$sourcePath"`" `""$destinationPath"`" `""$sourceFile`"" | 
-        %{
-            $data = $_.Split([char]9); if("$($data[4])" -ne "") 
-            {
-                $file = "$($data[4])"
+        Write-Host "Executing: robocopy $sourcePath $destinationPath $sourceFile " -ForegroundColor Yellow
+        robocopy "$sourcePath" "$destinationPath" "$sourceFile"
+    }
+}
+
+
+##### Atempting to add progress bar with this new Robocopy function
+
+function Copy-Robocopy-test(
+        [Parameter(Mandatory=$true)][String]$sourcePath, 
+        [Parameter(Mandatory=$true)][String]$destinationPath,
+        [Parameter(Mandatory=$false)][String]$sourceFile)
+{ 
+    if ($localCopyFolderLocation -ne "") 
+    {
+        Write-Host "Executing: robocopy /E /V $sourcePath $destinationPath " -ForegroundColor Yellow
+        robocopy /E /V "$sourcePath" "$destinationPath" | Out-Null
+
+    }
+    else
+    {
+        $sourceFile = Split-Path $sourcePath -leaf
+        $sourcePath = Split-Path $sourcePath
+        Write-Host "Executing: robocopy $sourcePath $destinationPath $sourceFile " -ForegroundColor Yellow
+        robocopy "$sourcePath" "$destinationPath" "$sourceFile" | Out-Null
+    }
+}
+
+
+function Copy-Robocopy-Example{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Destination,
+        [Parameter(Mandatory=$false)][String] $sourceFile)
+  
+$totalbytes = 0
+$currentbytes = 0
+$currentprocessedbytes = 0
+$processedbytes = 0
+
+$sourcefiles = Get-ChildItem -Path $Source -Recurse
+$sourcefiles | % { $totalbytes += $_.Length }     
+#Write-Host "Total Bytes: $totalbytes"
+
+$sourcefiles |
+    % {              
+        RoboCopy $Source $Destination $_.Name /is /it /ndl /njh /njs /bytes /tee | % {
+            $data = $_.Split([char]9); 
+            if("$($data[3])" -ne "") { $currentbytes = [int]$data[3] };
+            if("$($data[4])" -ne "") { $file = "$($data[4])"} ;
+            [decimal]$currentpercent = [math]::Round([decimal]($data[0] -replace "%",""),1)
+            Write-Progress "Percentage $currentpercent%" -Activity "Current File:" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue -PercentComplete $currentpercent                  
+            [int]$currentprocessedbytes = [math]::Round($currentbytes * ($currentpercent / 100))
+            [decimal]$processedpercent = [math]::Round((($processedbytes + $currentprocessedbytes) / $totalbytes) * 100,1)
+            Write-Progress -id 1 "Percentage $processedpercent%" -Activity "All Files:" -ErrorAction SilentlyContinue -PercentComplete $processedpercent
             }
-            $Percent = "$($data[0])"
-            Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue; 
-        } 
+        $processedbytes += $currentprocessedbytes
+        $srcDoc = "{0}\{1}" -f $Source,$_.Source
+        $dstDoc = "{0}\{1}" -f $Destination,$_.Source
+    }
+}
+
+
+### sort of works with progress bar but cause some graphical problems!
+function Copy-Robocopy-beta(
+        [Parameter(Mandatory=$true)][String]$sourcePath, 
+        [Parameter(Mandatory=$true)][String]$destinationPath,
+        [Parameter(Mandatory=$false)][String]$sourceFile)
+{ 
+    if ($localCopyFolderLocation -ne "") 
+    {
+        Write-Host "Executing: robocopy /E /V $sourcePath $destinationPath " -ForegroundColor Yellow
+        robocopy /E /V "$sourcePath" "$destinationPath" # |
+        # %{
+        #     $data = $_.Split([char]9); if("$($data[4])" -ne "") 
+        #     {
+        #     $file = "$($data[4])"
+        #     }
+        #     $Percent = "$($data[0])"
+        #     Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue;
+        # } 
+    }
+    else
+    {
+        $sourceFile = Split-Path $sourcePath -leaf
+        $sourcePath = Split-Path $sourcePath
+        Write-Host "Executing: robocopy $sourcePath $destinationPath $sourceFile " -ForegroundColor Yellow
+        robocopy "$sourcePath" "$destinationPath" "$sourceFile" #| 
+         # %{
+         #     $data = $_.Split([char]9); if("$($data[4])" -ne "") 
+         #     {
+         #         $file = "$($data[4])"
+         #     }
+         #     $Percent = "$($data[0])"
+         #     Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue; 
+         # } 
     }
 }
 
@@ -650,7 +729,8 @@ Function Task-Install
     $script:LocalMSIPacageFile = Split-Path $inputfilemsi -leaf
     ForEach ($currentComputer in $computers)
     {
-        $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\"
+        $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\" + "$LocalMSIPacageFile"
+        $destinationFileLocation = "\\" + "$currentComputer" + "\c`$\"
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
@@ -689,7 +769,7 @@ Function Task-Install
             if (!(test-path -path $destinationLocation))
             {
                 Write-Host "Copying from $inputfilemsi to $destinationLocation, please wait" -ForegroundColor Yellow
-                Copy-Robocopy $inputfilemsi $destinationLocation 
+                Copy-Robocopy $inputfilemsi $destinationFileLocation 
                 if (test-path -path $destinationLocation)
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process" -ForegroundColor Green
@@ -908,6 +988,7 @@ Function Copy-File-Checks
 Function Results
 {
     cls
+    cls
     Write-Host "`n================================ Results =================================`n"
     Write-Host "====== Note: These are cleared each time another option is selected ======`n"
     Write-Host "==========================================================================`n`n"
@@ -952,6 +1033,7 @@ Function Results
         Write-Host "List of Computers that the Installation Succeded but the MSI package / Task was unable to be deleted after it ran (I Suggest checking this):`n$computerTaskCleanupFailed`n`n==================END-OF-LIST==================`n" -ForegroundColor Red
     }
     Write-Host "`n==========================================================================`n"
+    pause
 }
 
 
