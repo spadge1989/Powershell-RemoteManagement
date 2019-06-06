@@ -22,12 +22,14 @@ $destinationLocation = ""
 $taskStatus = ""
 $msiSwitch = ""
 $localCopyFileLocation = ""
+$localCopyFolderLocation = ""
 $remoteCopyFileLocation = ""
 $remoteCopyFileLocationWorking = ""
 $automationRemoval = ""
 $sourcePath = ""
 $destinationPath = ""
 $sourceFile = ""
+
 
 # Array Variable setup for holding lists for errors.
 $computersDown = @()
@@ -89,16 +91,22 @@ Function Get-FileNameLocalFile($initialDirectory)
 
 Function Get-FolderNameLocalFolder($initialDirectory)
 {
-    Write-Host "`nSelect the file you wish to transfer to the endpoints from the local Machine`n"
-    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
-    $OpenFileDialog = New-Object System.Windows.Forms.FolderBrowserDialog  
-    $OpenFileDialog.ShowDialog() | Out-Null
+    [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms")|Out-Null
+
+    $foldername = New-Object System.Windows.Forms.FolderBrowserDialog
+    $foldername.Description = "Select a folder to copy"
+    $foldername.rootfolder = "MyComputer"
+    if($foldername.ShowDialog() -eq "OK")
+    {
+        $folder += $foldername.SelectedPath
+    }
+    return $folder
 }
 
 ############################################################
 ####Researching Robocopy to replace BITS / Stream transfer methods#####
 # robocopy "Options" "Source" "Destination" "File"
-# robocopy /S /E "C:\TestFolder\1" "C:\TestFolder\2" # This is probably the best one to use to copy folders (includes empty directories - does not delete anything that doesnt conflict)
+# robocopy /E "C:\TestFolder\1" "C:\TestFolder\2" # This is probably the best one to use to copy folders (includes empty directories - does not delete anything that doesnt conflict)
 # robocopy /MIR "C:\TestFolder\1" "C:\TestFolder\2" # This will make the destination folder exactly the same as the source - i.e. delete files / folders that are not present in the destination)
 # robocopy "C:\TestFolder\1" "C:\TestFolder\2" "SomeFile.exe" # Copies only the file in question, no folders etc... Puts it into the folder specified.
 # robocopy "C:\TestFolder\1" "C:\TestFolder\2" "*.exe" # Copies only the file with the extension in question, no folders etc... Puts it into the folder specified.
@@ -116,19 +124,36 @@ Function Get-FolderNameLocalFolder($initialDirectory)
 function Copy-Robocopy(
         [Parameter(Mandatory=$true)][String]$sourcePath, 
         [Parameter(Mandatory=$true)][String]$destinationPath,
-        [Parameter(Mandatory=$true)][String]$sourceFile)
-{
-
-robocopy /S /E /V "$sourcePath" "$destinationPath" "$sourceFile" | 
-%{
-    $data = $_.Split([char]9); if("$($data[4])" -ne "") 
+        [Parameter(Mandatory=$false)][String]$sourceFile)
+{ 
+    if ($localCopyFolderLocation -ne "") 
     {
-        $file = "$($data[4])"
+        Write-Host "Executing: robocopy /E /V `""$sourcePath"`" `""$destinationPath"`"" -ForegroundColor Yellow
+        robocopy /E /V `""$sourcePath"`" `""$destinationPath"`" |
+        %{
+            $data = $_.Split([char]9); if("$($data[4])" -ne "") 
+            {
+            $file = "$($data[4])"
+            }
+            $Percent = "$($data[0])"
+            Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue;
+        } 
     }
-    $Percent = "$($data[0])"
-    Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue;
-} 
-
+    else
+    {
+        $sourceFile = Split-Path $sourcePath -leaf
+        $sourcePath = Split-Path $sourcePath
+        Write-Host "Executing: robocopy /E /V `""$sourcePath"`" `""$destinationPath"`" `""$sourceFile"`"" -ForegroundColor Yellow
+        robocopy /E /V `""$sourcePath"`" `""$destinationPath"`" `""$sourceFile`"" | 
+        %{
+            $data = $_.Split([char]9); if("$($data[4])" -ne "") 
+            {
+                $file = "$($data[4])"
+            }
+            $Percent = "$($data[0])"
+            Write-Progress "Percentage $($data[0])" -Activity "Robocopy" -CurrentOperation "$($file)" -ErrorAction SilentlyContinue; 
+        } 
+    }
 }
 
 # Function to copy files and show a progress bar, could have used Copy-Item however this has no progress bar and sucks
@@ -625,7 +650,7 @@ Function Task-Install
     $script:LocalMSIPacageFile = Split-Path $inputfilemsi -leaf
     ForEach ($currentComputer in $computers)
     {
-        $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\" + "$LocalMSIPacageFile"
+        $script:destinationLocation = "\\" + "$currentComputer" + "\c`$\"
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
@@ -664,7 +689,7 @@ Function Task-Install
             if (!(test-path -path $destinationLocation))
             {
                 Write-Host "Copying from $inputfilemsi to $destinationLocation, please wait" -ForegroundColor Yellow
-                Copy-File $inputfilemsi $destinationLocation 
+                Copy-Robocopy $inputfilemsi $destinationLocation 
                 if (test-path -path $destinationLocation)
                 {
                     Write-Host "$LocalMSIPacageFile Succesfully copied to $currentComputer, Initiating the install process" -ForegroundColor Green
@@ -777,6 +802,40 @@ Function Task-Install
                                     }
                                     break
                                 }
+                                elseif (($taskStatus -ne "1603") -AND($taskStatus -ne "267011") -AND ($taskStatus -ne "267009") -AND ($taskStatus -ne "0"))
+                                {
+                                    Write-Host "$LocalMSIPacageFile on $currentComputer Failed for Last Result Code: $taskStatus, Manual Investigation recommended" -ForegroundColor Red
+                                    $script:computerTaskInstallFalied += "`n$currentComputer"
+                                    Remove-Item $destinationLocation -force -recurse | Out-Null
+                                    if (!(test-path -path $destinationLocation))
+                                    {
+                                        Write-Host "Succesfully removed $inputfilemsi, continuing with script" -ForegroundColor Green
+                                    }
+                                    else
+                                    {
+                                        Write-Host "Could not delete the file for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                        $script:computerTaskCleanupFailed += "`n$currentComputer"
+                                    }
+                                    schtasks.exe /delete /S "$currentComputer" /TN "$LocalMSIPacageFile" /F | Out-Null
+                                    schtasks.exe /query /s "$currentComputer" /v /tn "$LocalMSIPacageFile" *> $null
+                                    if (!($?))
+                                    {
+                                        Write-Host "Succesfully removed $LocalMSIPacageFile Task, continuing with script" -ForegroundColor Green
+                                    }
+                                    else
+                                    {
+                                        Write-Host "Could not delete the $LocalMSIPacageFile Task for some reason, Skipping $currentComputer" -ForegroundColor Red
+                                        if ($computerTaskCleanupFailed -match $currentComputer)
+                                        {
+                                            Write-Host "$currentComputer Already been added to the Cleanup Failed list, skipping this step" -ForegroundColor Yellow
+                                        }
+                                        else
+                                        {
+                                            $script:computerTaskCleanupFailed += "`n$currentComputer"
+                                        }
+                                    }
+                                    break
+                                }
                             }
 
                         }
@@ -812,29 +871,24 @@ Function Task-Install
 }
 
 # Function for copy files from local machine to a remote machine with the Copy-File function - but with more checks
-## inputs from user = 
-#                                   $script:localCopyFileLocation = "" 
-#                                   $script:localCopyFolderLocation = ""
-#                                   $script:remoteCopyFileLocation = ""
-
-## Outputs into Robocopy line:     robocopy /S /E /V "$sourcePath" "$destinationPath" "$sourceFile"
 
 Function Copy-File-Checks
 {
+    cls
     $script:computerCopyFailed = @()
     ForEach ($currentComputer in $computers)
     {
-        $script:remoteCopyFileLocationWorking = "\\$currentComputer" + "$remoteCopyFileLocation"
+        $script:remoteCopyLocationWorking = "\\$currentComputer" + "$remoteCopyLocation"
         if(Test-Connection -BufferSize 32 -Count 1 -ComputerName $currentComputer -Quiet) 
         {        
             Write-Host "$currentComputer Online, continuing script" -ForegroundColor Green
             if ($localCopyFileLocation -ne "")
             {
-
+                Copy-Robocopy $localCopyFileLocation $remoteCopyLocationWorking
             }
             elseif ($localCopyFolderLocation -ne "")
             {
-
+                Copy-Robocopy $localCopyFolderLocation $remoteCopyLocationWorking
             }
         }
         else
@@ -1208,6 +1262,7 @@ do
         }
         '7'
         { 
+            cls
             if (!($inputfile))
             {
                 $script:inputfile = Get-FileName "C:\"
@@ -1238,7 +1293,6 @@ do
             }
             if (($inputfilemsi)-AND ($inputfile) -AND ($msiSwitch))
             {
-                pause
             cls 
             Task-Install
             }
@@ -1314,8 +1368,10 @@ do
                     cls
                     Write-Host "`nEnter Location of where you would like the Folder to be transfered to`n"
                     Write-Host "`nTo enter new folder location for remote system you can use the example below`n"
-                    Write-Host "N.B. When copying Folders if there are files named the same they will be overwritten by your chosen ones.`n"
-                    Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolder = \c`$\Program Files\SomeRandomProgram`n"
+                    Write-Host "N.B. When copying Folders if there are files named the same they will be overwritten by yours.`n"
+                    Write-Host "N.B. When copying Folders it will only copy the contents within the selected Folder (simply name the destination folder the same as yours if you would like that to be present/created).`n"
+                    Write-Host "N.B. You may also type in a destination folder structure that does not exist and this will be created for you.`n"
+                    Write-Host "e.g. C:\Program Files\SomeRandomProgram\RandomFolder = \c`$\Program Files\SomeRandomProgram\RandomFolder`n"
                     $script:remoteCopyLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
                 }
                 elseif ($FileFolder = "0")
@@ -1329,7 +1385,7 @@ do
                     $script:remoteCopyLocation = Read-Host -Prompt "Enter destination location for the file/Folder"
                 }
             }
-            if ((($localCopyFileLocation) -OR ($localCopyFolderLocation))-AND ($inputfile) -AND ($remoteCopyLocation))
+            if ((($localCopyFolderLocation) -OR ($localCopyFileLocation))-AND ($inputfile) -AND ($remoteCopyLocation))
             {
             Copy-File-Checks
             pause
