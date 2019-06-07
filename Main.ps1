@@ -5,7 +5,7 @@
 
 # Version Variable
 
-$Version = "0.2"
+$Version = "1.0"
 
 ##### Default Variables ###########
 
@@ -863,9 +863,6 @@ Function User-Menu
         Write-Host "##### Script made by Spadge1989 - aka. Padge #####"-ForegroundColor Green
         Write-Host "###### This project can be found on GitHub #######"-ForegroundColor Green
         Write-Host "############# github.com/spadge1989 ##############"-ForegroundColor Green
-        Write-Host "##################################################"-ForegroundColor Green
-        Write-Host "#############This Project is still in ############"-ForegroundColor Green
-        Write-Host "########### ALPHA stage of development ###########"-ForegroundColor Green
         Write-Host "##################################################"-ForegroundColor Green
         Write-Host "################## Version $Version ###################"-ForegroundColor Green
         Write-Host "##################################################`n"-ForegroundColor Green
