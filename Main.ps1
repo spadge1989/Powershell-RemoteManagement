@@ -1280,6 +1280,7 @@ do
             if ((($localCopyFolderLocation) -OR ($localCopyFileLocation))-AND ($inputfile) -AND ($remoteCopyLocation))
             {
             Copy-File-Checks
+            $script:localCopyFolderLocation = ""
             pause
             }
             else 
