@@ -938,7 +938,7 @@ Function Sub-Menu-Options1
                         {
                             cls
                             Write-Host "`n====== Change/Select Service ======`n"
-                            Write-Host "This must be the actualy ServiceName as displayed in the Name feild in Services.msc not the display name`n"
+                            Write-Host "This must be the actualy ServiceName as displayed in the Name field in Services.msc not the display name`n"
                             Write-Host "Current Service Name set to: `"$serviceName`"`n"
                             $script:serviceName = Read-Host -Prompt "Please enter new service name"
                         }
